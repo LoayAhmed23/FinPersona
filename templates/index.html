@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOLA AI - Customer Insights & Recommendation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-base: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+            --accent: #0ea5e9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.6);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .step-number {
+            background-color: var(--primary);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background-color: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-box {
+            background-color: rgba(15, 23, 42, 0.8);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        .log-line { margin: 0.2rem 0; }
+        .log-info { color: var(--accent); }
+        .log-success { color: var(--success); }
+        .log-error { color: var(--danger); }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: var(--border);
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .metric-card {
+            background-color: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .predictions-container {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin: 0.25rem;
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .pill.recommended {
+            background-color: rgba(14, 165, 233, 0.1);
+            color: var(--accent);
+            border-color: rgba(14, 165, 233, 0.2);
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-left-color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+            display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); font-weight: 500; }
+        
+        .autocomplete-items {
+            position: absolute;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: var(--bg-card);
+            border-radius: 0 0 0.5rem 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        .autocomplete-items div:hover { background-color: var(--border); }
+        .autocomplete-wrapper { position: relative; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>HOLA AI</h1>
+        <p class="subtitle">Next-Gen Customer Insights & Product Recommendation</p>
+    </header>
+
+    <!-- STEP 1: Data Analytics -->
+    <div class="card" id="step1">
+        <div class="card-header">
+            <div class="step-number">1</div>
+            <h2 class="card-title">Data Analytics Pipeline</h2>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Load, clean, and consolidate Prime and Transaction data. Optionally provide raw data folders to run the full prestep automatically.</p>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group">
+                <label for="rawPrimeDir">Raw Prime Directory <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                <input type="text" id="rawPrimeDir" value="prime" placeholder="e.g., prime">
+            </div>
+            <div class="form-group">
+                <label for="rawTxnDir">Raw Transaction Directory <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                <input type="text" id="rawTxnDir" value="transaction" placeholder="e.g., transaction">
+            </div>
+            <div class="form-group">
+                <label for="primeDir">Cleaned Prime Output Directory</label>
+                <input type="text" id="primeDir" value="prime_cleaned" placeholder="e.g., prime_cleaned">
+            </div>
+            <div class="form-group">
+                <label for="txnDir">Cleaned Transaction Output Directory</label>
+                <input type="text" id="txnDir" value="transaction_cleaned" placeholder="e.g., transaction_cleaned">
+            </div>
+        </div>
+        
+        <button id="btnAnalytics" onclick="runAnalytics()">
+            <div class="spinner" id="spinAnalytics"></div>
+            <span>Run Analytics</span>
+        </button>
+
+        <div class="progress-bar" id="progAnalytics"><div class="progress-fill" id="fillAnalytics"></div></div>
+        <div class="status-box" id="logAnalytics"></div>
+
+        <div class="metrics-grid" id="statsAnalytics">
+            <div class="metric-card">
+                <div class="metric-value" id="valCustomers">0</div>
+                <div class="metric-label">Customers Processed</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valFeatures">0</div>
+                <div class="metric-label">Features Extracted</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valProducts">0</div>
+                <div class="metric-label">Target Products</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 2: Model Training -->
+    <div class="card" id="step2" style="opacity: 0.5; pointer-events: none;">
+        <div class="card-header">
+            <div class="step-number">2</div>
+            <h2 class="card-title">Train XGBoost Models</h2>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Train predictive models with automated threshold tuning for each product.</p>
+        
+        <button id="btnTrain" onclick="runTraining()">
+            <div class="spinner" id="spinTrain"></div>
+            <span>Start Training</span>
+        </button>
+
+        <div class="progress-bar" id="progTrain"><div class="progress-fill" id="fillTrain"></div></div>
+        <div class="status-box" id="logTrain"></div>
+
+        <div class="metrics-grid" id="statsTrain">
+            <div class="metric-card">
+                <div class="metric-value" id="valExact">0%</div>
+                <div class="metric-label">Exact Match Accuracy</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMicroF1">0</div>
+                <div class="metric-label">Micro F1</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMicroP">0</div>
+                <div class="metric-label">Micro Precision</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMicroR">0</div>
+                <div class="metric-label">Micro Recall</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMacroF1">0</div>
+                <div class="metric-label">Macro F1</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMacroP">0</div>
+                <div class="metric-label">Macro Precision</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valMacroR">0</div>
+                <div class="metric-label">Macro Recall</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 3: CBF Training -->
+    <div class="card" id="step3cbf" style="opacity: 0.5; pointer-events: none;">
+        <div class="card-header">
+            <div class="step-number">3</div>
+            <h2 class="card-title">Train CBF Model (Item Similarity)</h2>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Build item-item cosine similarity matrix with threshold optimization and masking-based evaluation.</p>
+        
+        <button id="btnTrainCbf" onclick="runCbfTraining()">
+            <div class="spinner" id="spinTrainCbf"></div>
+            <span>Train CBF</span>
+        </button>
+
+        <div class="progress-bar" id="progCbf"><div class="progress-fill" id="fillCbf"></div></div>
+        <div class="status-box" id="logCbf"></div>
+
+        <div class="metrics-grid" id="statsCbf">
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfExact">0%</div>
+                <div class="metric-label">Exact Match Accuracy</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMicroF1">0</div>
+                <div class="metric-label">Micro F1</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMicroP">0</div>
+                <div class="metric-label">Micro Precision</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMicroR">0</div>
+                <div class="metric-label">Micro Recall</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMacroF1">0</div>
+                <div class="metric-label">Macro F1</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMacroP">0</div>
+                <div class="metric-label">Macro Precision</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="valCbfMacroR">0</div>
+                <div class="metric-label">Macro Recall</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 4: Inference -->
+    <div class="card" id="step3" style="opacity: 0.5; pointer-events: none;">
+        <div class="card-header">
+            <div class="step-number">4</div>
+            <h2 class="card-title">Customer Inference</h2>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Predict recommended products for a specific customer.</p>
+        
+        <div class="form-group autocomplete-wrapper">
+            <label for="customerId">Customer ID</label>
+            <input type="number" id="customerId" placeholder="Enter Customer ID" oninput="searchCustomers(this.value)">
+            <div id="autocompleteList" class="autocomplete-items"></div>
+        </div>
+        
+        <button id="btnPredict" onclick="runPrediction()">
+            <div class="spinner" id="spinPredict"></div>
+            <span>Get Recommendations</span>
+        </button>
+
+        <div class="predictions-container" id="predContainer">
+            <h3 style="margin-top: 0;">Results for Customer <span id="resCustId" style="color:var(--accent)"></span></h3>
+            
+            <div style="margin-bottom: 1rem;">
+                <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500;">Currently Holds:</p>
+                <div id="resHolds"></div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500;">XGBoost Recommendations:</p>
+                <div id="resRecs"></div>
+            </div>
+
+            <table style="margin-top: 1rem;">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Probability</th>
+                        <th>Threshold</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="resTableBody"></tbody>
+            </table>
+
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+                <p style="color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500;">CBF Recommendations (Item Similarity):</p>
+                <div id="resCbf"></div>
+                <table style="margin-top: 1rem;" id="cbfTable">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Similarity Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resCbfTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pollInterval = null;
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                updateUI(data);
+            } catch (e) {
+                console.error("Polling error", e);
+            }
+        }, 1000);
+    }
+
+    function updateUI(data) {
+        if (data.status === 'error' || data.cbf_status === 'error') {
+            clearInterval(pollInterval);
+            alert("Error: " + data.error);
+            resetButtons();
+            return;
+        }
+
+        // Update step 1 UI
+        if (data.status === 'running_analytics' || data.status === 'analytics_done' || data.status === 'training' || data.status === 'trained') {
+            document.getElementById('logAnalytics').style.display = 'block';
+            document.getElementById('logAnalytics').innerHTML = data.analytics_logs.map(l => `<div class="log-line">${l}</div>`).join('');
+            document.getElementById('logAnalytics').scrollTop = document.getElementById('logAnalytics').scrollHeight;
+            
+            document.getElementById('progAnalytics').style.display = 'block';
+            document.getElementById('fillAnalytics').style.width = (data.status === 'running_analytics' ? data.progress_pct : 100) + '%';
+        }
+
+        if (data.status === 'analytics_done' || data.status === 'training' || data.status === 'trained') {
+            document.getElementById('step2').style.opacity = '1';
+            document.getElementById('step2').style.pointerEvents = 'auto';
+            document.getElementById('step3cbf').style.opacity = '1';
+            document.getElementById('step3cbf').style.pointerEvents = 'auto';
+            document.getElementById('statsAnalytics').style.display = 'grid';
+            document.getElementById('valCustomers').innerText = data.customer_count.toLocaleString();
+            document.getElementById('valFeatures').innerText = data.feature_count;
+            document.getElementById('valProducts').innerText = data.product_count;
+            document.getElementById('spinAnalytics').style.display = 'none';
+            document.getElementById('btnAnalytics').disabled = false;
+        }
+
+        // Update step 2 UI (XGBoost)
+        if (data.status === 'training' || data.status === 'trained') {
+            document.getElementById('logTrain').style.display = 'block';
+            document.getElementById('logTrain').innerHTML = data.training_logs.map(l => `<div class="log-line">${l}</div>`).join('');
+            document.getElementById('logTrain').scrollTop = document.getElementById('logTrain').scrollHeight;
+            
+            document.getElementById('progTrain').style.display = 'block';
+            document.getElementById('fillTrain').style.width = (data.status === 'training' ? data.progress_pct : 100) + '%';
+        }
+
+        if (data.status === 'trained') {
+            document.getElementById('statsTrain').style.display = 'grid';
+            if (data.metrics) {
+                document.getElementById('valExact').innerText = data.metrics.exact_match_accuracy + '%';
+                document.getElementById('valMicroF1').innerText = data.metrics.micro.f1;
+                document.getElementById('valMicroP').innerText = data.metrics.micro.precision;
+                document.getElementById('valMicroR').innerText = data.metrics.micro.recall;
+                document.getElementById('valMacroF1').innerText = data.metrics.macro.f1;
+                document.getElementById('valMacroP').innerText = data.metrics.macro.precision;
+                document.getElementById('valMacroR').innerText = data.metrics.macro.recall;
+            }
+            document.getElementById('spinTrain').style.display = 'none';
+            document.getElementById('btnTrain').disabled = false;
+        }
+
+        // Update step 3 UI (CBF)
+        if (data.cbf_status === 'training_cbf' || data.cbf_status === 'cbf_trained') {
+            document.getElementById('logCbf').style.display = 'block';
+            document.getElementById('logCbf').innerHTML = data.cbf_logs.map(l => `<div class="log-line">${l}</div>`).join('');
+            document.getElementById('logCbf').scrollTop = document.getElementById('logCbf').scrollHeight;
+
+            document.getElementById('progCbf').style.display = 'block';
+            document.getElementById('fillCbf').style.width = (data.cbf_status === 'training_cbf' ? data.cbf_progress_pct : 100) + '%';
+        }
+
+        if (data.cbf_status === 'cbf_trained') {
+            document.getElementById('statsCbf').style.display = 'grid';
+            if (data.cbf_metrics) {
+                document.getElementById('valCbfExact').innerText = data.cbf_metrics.exact_match_accuracy + '%';
+                document.getElementById('valCbfMicroF1').innerText = data.cbf_metrics.micro.f1;
+                document.getElementById('valCbfMicroP').innerText = data.cbf_metrics.micro.precision;
+                document.getElementById('valCbfMicroR').innerText = data.cbf_metrics.micro.recall;
+                document.getElementById('valCbfMacroF1').innerText = data.cbf_metrics.macro.f1;
+                document.getElementById('valCbfMacroP').innerText = data.cbf_metrics.macro.precision;
+                document.getElementById('valCbfMacroR').innerText = data.cbf_metrics.macro.recall;
+            }
+            document.getElementById('spinTrainCbf').style.display = 'none';
+            document.getElementById('btnTrainCbf').disabled = false;
+        }
+
+        // Enable inference when XGBoost is trained (CBF is optional for inference)
+        if (data.status === 'trained') {
+            document.getElementById('step3').style.opacity = '1';
+            document.getElementById('step3').style.pointerEvents = 'auto';
+        }
+
+        // Stop polling when nothing is running
+        const xgbDone = data.status !== 'running_analytics' && data.status !== 'training';
+        const cbfDone = data.cbf_status !== 'training_cbf';
+        if (xgbDone && cbfDone) {
+            clearInterval(pollInterval);
+        }
+    }
+
+    function resetButtons() {
+        document.getElementById('spinAnalytics').style.display = 'none';
+        document.getElementById('btnAnalytics').disabled = false;
+        document.getElementById('spinTrain').style.display = 'none';
+        document.getElementById('btnTrain').disabled = false;
+        document.getElementById('spinTrainCbf').style.display = 'none';
+        document.getElementById('btnTrainCbf').disabled = false;
+        document.getElementById('spinPredict').style.display = 'none';
+        document.getElementById('btnPredict').disabled = false;
+    }
+
+    async function runAnalytics() {
+        const prime = document.getElementById('primeDir').value;
+        const txn = document.getElementById('txnDir').value;
+        const rawPrime = document.getElementById('rawPrimeDir').value;
+        const rawTxn = document.getElementById('rawTxnDir').value;
+        
+        document.getElementById('btnAnalytics').disabled = true;
+        document.getElementById('spinAnalytics').style.display = 'block';
+        
+        try {
+            const payload = {prime_dir: prime, transaction_dir: txn};
+            if (rawPrime) payload.raw_prime_dir = rawPrime;
+            if (rawTxn) payload.raw_transaction_dir = rawTxn;
+
+            await fetch('/api/run_analytics', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            startPolling();
+        } catch (e) {
+            alert("Request failed.");
+            resetButtons();
+        }
+    }
+
+    async function runTraining() {
+        document.getElementById('btnTrain').disabled = true;
+        document.getElementById('spinTrain').style.display = 'block';
+        
+        try {
+            await fetch('/api/train', { method: 'POST' });
+            startPolling();
+        } catch (e) {
+            alert("Request failed.");
+            resetButtons();
+        }
+    }
+
+    async function runCbfTraining() {
+        document.getElementById('btnTrainCbf').disabled = true;
+        document.getElementById('spinTrainCbf').style.display = 'block';
+
+        try {
+            await fetch('/api/train_cbf', { method: 'POST' });
+            startPolling();
+        } catch (e) {
+            alert("Request failed.");
+            resetButtons();
+        }
+    }
+
+    async function runPrediction() {
+        const cid = document.getElementById('customerId').value;
+        if (!cid) return;
+
+        document.getElementById('btnPredict').disabled = true;
+        document.getElementById('spinPredict').style.display = 'block';
+        
+        try {
+            const [xgbRes, cbfRes] = await Promise.all([
+                fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({customer_id: cid})
+                }),
+                fetch('/api/predict_cbf', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({customer_id: cid})
+                })
+            ]);
+            
+            const xgbData = await xgbRes.json();
+            const cbfData = await cbfRes.json();
+            resetButtons();
+            
+            if (xgbData.error) {
+                alert(xgbData.error);
+                return;
+            }
+            
+            displayPredictions(xgbData, cbfData);
+        } catch (e) {
+            alert("Prediction failed.");
+            resetButtons();
+        }
+    }
+
+    function displayPredictions(data, cbfData) {
+        document.getElementById('predContainer').style.display = 'block';
+        document.getElementById('resCustId').innerText = data.customer_id;
+        
+        // Currently Holds (ground truth from data)
+        const holdsEl = document.getElementById('resHolds');
+        if (data.already_holding.length === 0) {
+            holdsEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic">None</span>';
+        } else {
+            holdsEl.innerHTML = data.already_holding.map(p => `<div class="pill">${p}</div>`).join('');
+        }
+
+        // XGBoost Recommendations
+        const recsEl = document.getElementById('resRecs');
+        if (data.predicted_products.length === 0) {
+            recsEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic">No recommendations</span>';
+        } else {
+            recsEl.innerHTML = data.predicted_products.map(r => {
+                const overlap = r.currently_holds ? ' held' : ' recommended';
+                return `<div class="pill${r.currently_holds ? '' : ' recommended'}">${r.product} (${r.probability}%)${overlap}</div>`;
+            }).join('');
+        }
+
+        // XGBoost detail table
+        const tbody = document.getElementById('resTableBody');
+        tbody.innerHTML = data.predicted_products.map(p => `
+            <tr>
+                <td>${p.product}</td>
+                <td>${p.probability}%</td>
+                <td>${p.threshold}</td>
+                <td>
+                    ${p.currently_holds 
+                        ? '<span style="color:var(--success)">Currently Holds</span>' 
+                        : '<span style="color:var(--accent)">New Recommendation</span>'}
+                </td>
+            </tr>
+        `).join('');
+
+        // CBF Recommendations
+        const cbfEl = document.getElementById('resCbf');
+        const cbfTbody = document.getElementById('resCbfTableBody');
+        
+        if (cbfData.error) {
+            cbfEl.innerHTML = `<span style="color:var(--danger);font-style:italic">CBF Error: ${cbfData.error}</span>`;
+            cbfTbody.innerHTML = '';
+        } else if (!cbfData.cbf_recommendations || cbfData.cbf_recommendations.length === 0) {
+            cbfEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic">No CBF recommendations (customer may not hold any products)</span>';
+            cbfTbody.innerHTML = '';
+        } else {
+            cbfEl.innerHTML = cbfData.cbf_recommendations.map(r => 
+                `<div class="pill recommended">${r.product} (score: ${r.similarity_score})</div>`
+            ).join('');
+            
+            cbfTbody.innerHTML = cbfData.cbf_recommendations.map(r => `
+                <tr>
+                    <td>${r.product}</td>
+                    <td>${r.similarity_score}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    let searchTimeout;
+    function searchCustomers(val) {
+        clearTimeout(searchTimeout);
+        const list = document.getElementById("autocompleteList");
+        list.innerHTML = '';
+        if (!val) return;
+        
+        searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch('/api/customers?q=' + val);
+                const data = await res.json();
+                
+                data.customers.forEach(cid => {
+                    const div = document.createElement("div");
+                    div.innerHTML = cid;
+                    div.addEventListener("click", function() {
+                        document.getElementById("customerId").value = this.innerText;
+                        list.innerHTML = '';
+                    });
+                    list.appendChild(div);
+                });
+            } catch (e) {}
+        }, 300);
+    }
+    // On page load: check if saved state exists and unlock the right steps
+    window.addEventListener('load', async () => {
+        try {
+            const res = await fetch('/api/status');
+            const data = await res.json();
+            updateUI(data);
+        } catch (e) {
+            console.error("Initial status check failed", e);
+        }
+    });
+</script>
+
+</body>
+</html>
