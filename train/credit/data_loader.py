@@ -210,6 +210,23 @@ def merge_data(prime_df: pd.DataFrame, txn_features_df: pd.DataFrame) -> pd.Data
     month_col = config.MONTH_COL
     txn_cols = txn_features_df.columns.tolist()
 
+    # Ensure CUSTOMER_ID dtype matches on both sides (often object vs int64)
+    if cid in prime_df.columns:
+        prime_df[cid] = pd.to_numeric(prime_df[cid], errors="coerce").astype("Int64")
+    if isinstance(txn_features_df.index, pd.MultiIndex):
+        # CUSTOMER_ID is part of the MultiIndex — rebuild with aligned dtype
+        idx_names = txn_features_df.index.names
+        txn_features_df = txn_features_df.reset_index()
+        if cid in txn_features_df.columns:
+            txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+        txn_features_df = txn_features_df.set_index(idx_names)
+    elif cid in txn_features_df.index.names or txn_features_df.index.name == cid:
+        txn_features_df = txn_features_df.reset_index()
+        txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+        txn_features_df = txn_features_df.set_index(cid)
+    elif cid in txn_features_df.columns:
+        txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+
     if month_col in prime_df.columns and isinstance(txn_features_df.index, pd.MultiIndex):
         # Month-aware merge: txn_features is indexed by (CUSTOMER_ID, month)
         txn_reset = txn_features_df.reset_index()

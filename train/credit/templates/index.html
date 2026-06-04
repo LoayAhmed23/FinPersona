@@ -748,103 +748,33 @@
         </div>
     </div>
 
-    <!-- Browse Modal -->
-    <div class="modal-overlay" id="browseModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>📂 Select Directory</h3>
-                <button class="modal-close" onclick="closeBrowser()">&times;</button>
-            </div>
-            <div class="modal-path" id="browsePath">Loading...</div>
-            <div class="modal-body" id="browseBody"></div>
-            <div class="modal-footer">
-                <button class="secondary" onclick="closeBrowser()">Cancel</button>
-                <button onclick="selectBrowsePath()">Select This Folder</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         let pollInterval = null;
-        let browseTargetInput = null;
-        let browseCurrentPath = '';
 
-        // ── Browse functions ──
-        function openBrowser(inputId) {
-            browseTargetInput = inputId;
-            const currentVal = document.getElementById(inputId).value.trim();
-            document.getElementById('browseModal').classList.add('active');
-            loadBrowse(currentVal || '');
-        }
-
-        function closeBrowser() {
-            document.getElementById('browseModal').classList.remove('active');
-            browseTargetInput = null;
-        }
-
-        async function loadBrowse(path) {
-            const body = document.getElementById('browseBody');
-            body.innerHTML = '<div style="padding:1.5rem;color:var(--text-muted);">Loading...</div>';
+        // ── Browse: opens native Windows folder picker ──
+        async function openBrowser(inputId) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Opening...';
 
             try {
-                const res = await fetch('/api/browse?path=' + encodeURIComponent(path));
+                const res = await fetch('/api/browse', { method: 'POST' });
                 const data = await res.json();
 
                 if (data.error) {
-                    body.innerHTML = `<div style="padding:1.5rem;color:var(--danger);">${data.error}</div>`;
-                    return;
+                    alert('Browse error: ' + data.error);
+                } else if (data.path) {
+                    document.getElementById(inputId).value = data.path;
                 }
-
-                browseCurrentPath = data.current;
-                document.getElementById('browsePath').textContent = data.current;
-
-                let html = '';
-
-                // Parent directory link
-                if (data.parent) {
-                    html += `<div class="browse-item parent" onclick="loadBrowse('${data.parent.replace(/'/g, "\\'")}')">
-                    <span class="icon">⬆</span>
-                    <span>..</span>
-                </div>`;
-                }
-
-                // Entries
-                for (const entry of data.entries) {
-                    const escapedPath = entry.path.replace(/'/g, "\\'");
-                    if (entry.is_dir) {
-                        html += `<div class="browse-item dir" onclick="loadBrowse('${escapedPath}')">
-                        <span class="icon">📁</span>
-                        <span>${entry.name}</span>
-                    </div>`;
-                    } else {
-                        html += `<div class="browse-item file">
-                        <span class="icon">📄</span>
-                        <span style="color:var(--text-muted);">${entry.name}</span>
-                    </div>`;
-                    }
-                }
-
-                if (data.entries.length === 0) {
-                    html += '<div style="padding:1.5rem;color:var(--text-muted);font-style:italic;">Empty directory</div>';
-                }
-
-                body.innerHTML = html;
+                // if path is empty, user cancelled — do nothing
             } catch (e) {
-                body.innerHTML = `<div style="padding:1.5rem;color:var(--danger);">Failed to load directory</div>`;
+                alert('Failed to open folder picker.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Browse';
             }
         }
-
-        function selectBrowsePath() {
-            if (browseTargetInput && browseCurrentPath) {
-                document.getElementById(browseTargetInput).value = browseCurrentPath;
-            }
-            closeBrowser();
-        }
-
-        // Close modal on overlay click
-        document.addEventListener('click', function (e) {
-            if (e.target.id === 'browseModal') closeBrowser();
-        });
 
         function startPolling() {
             if (pollInterval) clearInterval(pollInterval);

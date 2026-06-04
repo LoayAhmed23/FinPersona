@@ -413,47 +413,36 @@ def api_report():
     return jsonify({"report": ""})
 
 
-@app.route("/api/browse")
+@app.route("/api/browse", methods=["POST"])
 def api_browse():
-    """List contents of a directory for the folder browser.
+    """Open a native Windows folder picker dialog and return the selected path."""
+    import subprocess
 
-    Query params:
-        path  – absolute or relative directory to list (defaults to project root)
-    """
-    raw_path = request.args.get("path", "").strip()
+    script = (
+        "import tkinter as tk; "
+        "from tkinter import filedialog; "
+        "root = tk.Tk(); "
+        "root.withdraw(); "
+        "root.attributes('-topmost', True); "
+        "path = filedialog.askdirectory(title='Select Directory'); "
+        "print(path); "
+        "root.destroy()"
+    )
 
-    if not raw_path:
-        browse_dir = config.PROJECT_ROOT
-    else:
-        # Resolve relative paths against the project root
-        browse_dir = os.path.abspath(raw_path) if os.path.isabs(raw_path) else os.path.abspath(
-            os.path.join(config.PROJECT_ROOT, raw_path)
-        )
-
-    if not os.path.isdir(browse_dir):
-        return jsonify({"error": f"Not a directory: {browse_dir}"}), 400
-
-    entries = []
     try:
-        for name in sorted(os.listdir(browse_dir)):
-            full = os.path.join(browse_dir, name)
-            entries.append({
-                "name": name,
-                "path": full.replace("\\", "/"),
-                "is_dir": os.path.isdir(full),
-            })
-    except PermissionError:
-        return jsonify({"error": f"Permission denied: {browse_dir}"}), 403
-
-    # Sort: directories first, then files
-    entries.sort(key=lambda e: (not e["is_dir"], e["name"].lower()))
-
-    parent = os.path.dirname(browse_dir)
-    return jsonify({
-        "current": browse_dir.replace("\\", "/"),
-        "parent": parent.replace("\\", "/") if parent != browse_dir else None,
-        "entries": entries,
-    })
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True, text=True, timeout=120,
+        )
+        selected = result.stdout.strip()
+        if selected:
+            return jsonify({"path": selected.replace("\\", "/")})
+        else:
+            return jsonify({"path": ""})  # user cancelled
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Dialog timed out."}), 408
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
