@@ -1,0 +1,218 @@
+"""
+Model training, hyperparameter tuning, and persistence.
+"""
+
+import numpy as np
+import xgboost as xgb
+import joblib
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.metrics import make_scorer, roc_auc_score
+
+import config
+
+
+def get_top_features_by_gain(booster: "xgb.Booster", feature_order: list[str], top_n: int = 20) -> list[str]:
+    """Return the top-N features ranked by XGBoost 'gain'.
+
+    Notes
+    -----
+    - Only features present in `feature_order` are considered.
+    - Features never used in a split have gain=0 and will be ranked last.
+    """
+    if top_n <= 0:
+        raise ValueError("top_n must be a positive integer")
+
+    gain_dict = booster.get_score(importance_type="gain")
+
+    # If XGBoost was trained without feature_names, keys will look like f0,f1,...
+    # Map them back to the provided feature_order.
+    if gain_dict and all(isinstance(k, str) and k.startswith("f") and k[1:].isdigit() for k in gain_dict.keys()):
+        mapped = {}
+        for k, v in gain_dict.items():
+            idx = int(k[1:])
+            if 0 <= idx < len(feature_order):
+                mapped[feature_order[idx]] = float(v)
+        gain_dict = mapped
+
+    scored = [(f, float(gain_dict.get(f, 0.0))) for f in feature_order]
+    scored.sort(key=lambda t: t[1], reverse=True)
+
+    # Fallback: if everything is zero (can happen on degenerate training), use split counts.
+    if scored and scored[0][1] == 0.0:
+        weight_dict = booster.get_score(importance_type="weight")
+        if weight_dict and all(isinstance(k, str) and k.startswith("f") and k[1:].isdigit() for k in weight_dict.keys()):
+            mapped = {}
+            for k, v in weight_dict.items():
+                idx = int(k[1:])
+                if 0 <= idx < len(feature_order):
+                    mapped[feature_order[idx]] = float(v)
+            weight_dict = mapped
+        scored = [(f, float(weight_dict.get(f, 0.0))) for f in feature_order]
+        scored.sort(key=lambda t: t[1], reverse=True)
+
+    return [f for f, _ in scored[: min(top_n, len(scored))]]
+
+
+def subset_to_features(X_train, X_test, X_all, artifacts: dict, selected_features: list[str]):
+    """Subset train/test/all matrices + artifacts to a fixed ordered feature list."""
+    if not selected_features:
+        raise ValueError("selected_features is empty")
+
+    # Keep only features that exist (defensive against any mismatch)
+    selected_features = [c for c in selected_features if c in X_train.columns]
+    if not selected_features:
+        raise ValueError("None of the selected_features exist in X_train")
+
+    X_train2 = X_train[selected_features]
+    X_test2 = X_test[selected_features]
+    X_all2 = X_all[selected_features]
+
+    artifacts2 = {**artifacts, "feature_order": list(selected_features)}
+    return X_train2, X_test2, X_all2, artifacts2
+
+
+# ---------------------------------------------------------------------------
+# Training
+# ---------------------------------------------------------------------------
+
+def train_xgboost(X_train, y_train, X_val, y_val, params=None, sample_weight_train=None):
+    """Train an XGBoost model with early stopping.
+
+    Returns the trained Booster.
+    """
+    params = params or dict(config.XGB_PARAMS)  # copy to avoid mutating config
+
+    # Automatic scale_pos_weight: skip when SMOTE already rebalanced the data
+    if "scale_pos_weight" not in params:
+        if getattr(config, "SMOTE_ENABLED", False):
+            params["scale_pos_weight"] = 1.0
+        else:
+            num_neg = (y_train == 0).sum()
+            num_pos = (y_train == 1).sum()
+            params["scale_pos_weight"] = num_neg / num_pos if num_pos > 0 else 1.0
+
+    # IMPORTANT: pass explicit feature_names so get_score() returns real column
+    # names instead of f0/f1/... (prevents top-feature selection mismatch).
+    feature_names = None
+    try:
+        feature_names = list(X_train.columns)
+    except Exception:
+        feature_names = None
+
+    xgb_train = xgb.DMatrix(
+        X_train,
+        label=y_train,
+        weight=sample_weight_train,
+        feature_names=feature_names,
+    )
+    xgb_val = xgb.DMatrix(
+        X_val,
+        label=y_val,
+        feature_names=feature_names,
+    )
+
+    bst = xgb.train(
+        params,
+        xgb_train,
+        num_boost_round=config.NUM_BOOST_ROUND,      
+        evals=[(xgb_train, "train"), (xgb_val, "valid")],
+        early_stopping_rounds=config.EARLY_STOPPING_ROUNDS,
+        verbose_eval=10,
+    )
+    
+    best_auc = bst.best_score
+    print(f"  Best iteration: {bst.best_iteration}  |  Best valid AUC: {best_auc}")
+    return bst
+
+
+# ---------------------------------------------------------------------------
+# Hyperparameter tuning
+# ---------------------------------------------------------------------------
+
+def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
+    """Run RandomizedSearchCV over XGBoost.
+
+    Parameters
+    ----------
+    X_train, y_train : training data (possibly SMOTE-resampled)
+    X_val, y_val     : held-out validation set for early stopping.
+                       Required when early_stopping_rounds is set.
+
+    Returns (best_estimator, best_params).
+    """
+
+    # When SMOTE is active, the training set is already rebalanced.
+    # Applying scale_pos_weight on top of SMOTE double-boosts the minority
+    # class, causing the model to over-predict positives (low precision).
+    if getattr(config, "SMOTE_ENABLED", False):
+        scale_pos_weight = 1.0
+        print("  [tune] SMOTE is active — setting scale_pos_weight=1.0 (no double-boost)")
+    else:
+        num_neg = (y_train == 0).sum()
+        num_pos = (y_train == 1).sum()
+        scale_pos_weight = num_neg / num_pos if num_pos > 0 else 1.0
+        print(f"  [tune] No SMOTE — using scale_pos_weight={scale_pos_weight:.2f}")
+
+    model = xgb.XGBClassifier(
+        objective="binary:logistic",
+        eval_metric="auc",
+        tree_method="hist",
+        device="cuda",
+        random_state=config.RANDOM_STATE,
+        scale_pos_weight=scale_pos_weight,
+        early_stopping_rounds=config.EARLY_STOPPING_ROUNDS,
+    )
+
+    scorer = make_scorer(roc_auc_score, response_method="predict_proba")
+
+    search = RandomizedSearchCV(
+        estimator=model,
+        param_distributions=config.TUNE_PARAM_GRID,  
+        n_iter=config.TUNE_N_ITER,
+        scoring=scorer,
+        cv=config.TUNE_CV_FOLDS,
+        verbose=2,
+        random_state=config.RANDOM_STATE,
+        n_jobs=config.N_GPUS, # Parallelize cross-validation folds across GPUs, not CPUs to avoid OOM
+    )
+
+    print(
+        f"  Starting hyperparameter search "
+        f"({config.TUNE_N_ITER} iterations x {config.TUNE_CV_FOLDS}-fold CV) ..."
+    )
+
+    # early_stopping_rounds requires an eval_set for validation
+    fit_params = {}
+    if X_val is not None and y_val is not None:
+        fit_params["eval_set"] = [(X_val, y_val)]
+        fit_params["verbose"] = False
+        print(f"  Using held-out eval_set ({X_val.shape[0]:,} samples) for early stopping")
+
+    search.fit(X_train, y_train, **fit_params)
+
+    print(f"  Best CV AUC: {search.best_score_:.4f}")
+    print("  Best params:")
+    for k, v in search.best_params_.items():
+        print(f"    {k}: {v}")
+
+    return search.best_estimator_, search.best_params_
+
+
+# ---------------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------------
+
+def save_model(model, artifacts: dict, path: str = None):
+    """Persist model and preprocessing artifacts."""
+    path = path or config.MODEL_PATH
+    payload = {"model": model, "artifacts": artifacts}
+    joblib.dump(payload, path)
+    print(f"[model] Saved to {path}")
+
+
+def load_model(path: str = None):
+    """Load model and preprocessing artifacts."""
+    path = path or config.MODEL_PATH
+    payload = joblib.load(path)
+    print(f"[model] Loaded from {path}")
+    return payload["model"], payload["artifacts"]
