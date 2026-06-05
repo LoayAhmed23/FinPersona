@@ -1122,24 +1122,17 @@
         activeTab = tab;
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-        document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1).replace('recommend', 'Rec').replace('credit', 'Credit').replace('churn', 'Churn')).classList.add('active');
 
-        // Fix nav button IDs
-        document.getElementById('navCredit').classList.remove('active');
-        document.getElementById('navChurn').classList.remove('active');
-        document.getElementById('navRec').classList.remove('active');
-        if (tab === 'credit') document.getElementById('navCredit').classList.add('active');
-        if (tab === 'churn') document.getElementById('navChurn').classList.add('active');
-        if (tab === 'recommend') document.getElementById('navRec').classList.add('active');
-
-        // Fix panel IDs
-        document.getElementById('tabCredit').classList.remove('active');
-        document.getElementById('tabChurn').classList.remove('active');
-        document.getElementById('tabRecommend').classList.remove('active');
-        if (tab === 'credit') document.getElementById('tabCredit').classList.add('active');
-        if (tab === 'churn') document.getElementById('tabChurn').classList.add('active');
-        if (tab === 'recommend') document.getElementById('tabRecommend').classList.add('active');
+        if (tab === 'credit') {
+            document.getElementById('tabCredit').classList.add('active');
+            document.getElementById('navCredit').classList.add('active');
+        } else if (tab === 'churn') {
+            document.getElementById('tabChurn').classList.add('active');
+            document.getElementById('navChurn').classList.add('active');
+        } else if (tab === 'recommend') {
+            document.getElementById('tabRecommend').classList.add('active');
+            document.getElementById('navRec').classList.add('active');
+        }
 
         document.getElementById('headerTitle').textContent = TITLES[tab];
     }
