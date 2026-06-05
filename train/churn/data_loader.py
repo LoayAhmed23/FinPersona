@@ -37,7 +37,7 @@ def create_churn_labels() -> pd.DataFrame:
     status = config.STATUS_COL
 
     print("=" * 55)
-    print(f"  Churn Labeling — {ref_key} → {tgt_key}")
+    print(f"  Churn Labeling -- {ref_key} -> {tgt_key}")
     print("=" * 55)
 
     ref_df = _load_label_file(ref_path, ref_key, [cid, status])
@@ -77,16 +77,33 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
 
     # Read only the columns that exist in the file
     header_cols = pd.read_csv(filepath, nrows=0, encoding="latin").columns.tolist()
-    cols_to_read = [c for c in usecols if c in header_cols]
-    if not cols_to_read:
+
+    # Map requested cols to file cols (handle RIM_NO → CUSTOMER_ID)
+    raw_id = config.PRIME_CUSTOMER_ID_RAW
+    canonical_id = config.CUSTOMER_ID
+    rename_map = {}
+    resolved = []
+    for c in usecols:
+        if c in header_cols:
+            resolved.append(c)
+        elif c == canonical_id and raw_id in header_cols:
+            resolved.append(raw_id)
+            rename_map[raw_id] = canonical_id
+        # else skip
+
+    if not resolved:
         raise ValueError(f"[{label}] None of {usecols} found in {filepath}")
 
-    df = pd.read_csv(filepath, usecols=cols_to_read, dtype=str, encoding="latin")
-    for col in cols_to_read:
-        df[col] = df[col].str.strip()
-    df.dropna(subset=[cols_to_read[0]], inplace=True)
+    df = pd.read_csv(filepath, usecols=resolved, dtype=str, encoding="latin")
+    if rename_map:
+        df = df.rename(columns=rename_map)
 
-    print(f"  [{label}] Loaded {len(df):,} rows | unique IDs: {df[cols_to_read[0]].nunique():,}")
+    cols_present = [c for c in usecols if c in df.columns]
+    for col in cols_present:
+        df[col] = df[col].str.strip()
+    df.dropna(subset=[cols_present[0]], inplace=True)
+
+    print(f"  [{label}] Loaded {len(df):,} rows | unique IDs: {df[cols_present[0]].nunique():,}")
     return df
 
 
@@ -108,6 +125,14 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
         dfs.append(df)
 
     combined = pd.concat(dfs, ignore_index=True)
+
+    # Replace fake sequential CUSTOMER_ID with real RIMNO
+    raw_id = config.TXN_CUSTOMER_ID_RAW
+    canonical_id = config.CUSTOMER_ID
+    if raw_id in combined.columns:
+        if canonical_id in combined.columns:
+            combined = combined.drop(columns=[canonical_id])
+        combined = combined.rename(columns={raw_id: canonical_id})
 
     # Map reversal flag to numeric
     if config.TXN_REVERSAL_COL in combined.columns:
@@ -138,6 +163,10 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     for f in files:
         print(f"  Loading {os.path.basename(f)} ...")
         df = pd.read_csv(f, encoding="latin")
+        # Rename raw customer ID column to canonical name
+        raw_id = config.PRIME_CUSTOMER_ID_RAW
+        if raw_id in df.columns and config.CUSTOMER_ID not in df.columns:
+            df = df.rename(columns={raw_id: config.CUSTOMER_ID})
         dfs.append(df)
 
     combined = pd.concat(dfs, ignore_index=True)

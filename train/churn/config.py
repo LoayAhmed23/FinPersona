@@ -13,7 +13,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
 # Data directories
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-PRIME_DATA_DIR = os.path.join(DATA_DIR, "cleaned", "prime")
+PRIME_DATA_DIR = os.path.join(DATA_DIR, "original", "prime")
 TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "cleaned", "transaction")
 
 # Output / model artefacts
@@ -25,7 +25,9 @@ REPORT_PATH = os.path.join(OUTPUT_DIR, "churn_evaluation_report.txt")
 # ---------------------------------------------------------------------------
 # Column names
 # ---------------------------------------------------------------------------
-CUSTOMER_ID = "CUSTOMER_ID"
+CUSTOMER_ID = "CUSTOMER_ID"          # internal / canonical name
+PRIME_CUSTOMER_ID_RAW = "RIM_NO"     # raw column in prime CSVs
+TXN_CUSTOMER_ID_RAW = "RIMNO"        # raw column in transaction CSVs
 TARGET_COL = "churn"
 STATUS_COL = "Card account status "
 
@@ -34,13 +36,13 @@ STATUS_COL = "Card account status "
 # ---------------------------------------------------------------------------
 # A customer is labeled churn=1 if they exist in the reference month
 # but are absent in the target month, or have a WROF status.
-CHURN_REFERENCE_MONTH = "202507"   # JUL 2025 — base cohort
-CHURN_TARGET_MONTH = "202602"      # FEB 2026 — check presence
+CHURN_REFERENCE_MONTH = "202602"   # FEB 2026 — base cohort
+CHURN_TARGET_MONTH = "202605"      # MAY 2026 — check presence
 CHURN_DEFAULT_STATUSES = ["WROF"]  # statuses that count as churn regardless
 
 CHURN_LABEL_FILES = {
-    "202507": "202507.csv",
-    "202602": "202602.csv",
+    "202602": "FEB2026.csv",
+    "202605": "MAY2026.csv",
 }
 
 # ---------------------------------------------------------------------------
@@ -53,21 +55,21 @@ TXN_FILE_PATTERN = "*.csv"
 # Transaction column names (preserved from raw data, including typos)
 # ---------------------------------------------------------------------------
 TXN_AMOUNT_COL = "BILLING AMT"
-TXN_DATE_COL = "TRXN_DATE"
-TXN_REVERSAL_COL = "REVERRSAL FLAG"
-TXN_REVERSAL_MAP = {"Norm": 1, "R": 0}
+TXN_DATE_COL = "TRXN DATE"
+TXN_REVERSAL_COL = "REVERSAL FLAG"
+TXN_REVERSAL_MAP = {"N": 1, "R": 0}
 
 # ---------------------------------------------------------------------------
 # Prime feature columns to keep
 # ---------------------------------------------------------------------------
 PRIME_FEATURE_COLS = [
-    "CUSTOMER_ID", "CREDIT_LIMIT", "LEDGER_BALANCE", "AVILABLE_LIMIT",
-    "OVERDUEAMOUNT", "STATUS", "STATUS_NAME", "ACTIVATED",
+    "CUSTOMER_ID", "CREDIT_LIMIT", "LEDGER_BALANCE", "AVAILABLE_LIMIT",
+    "OVERDUEAMOUNT", "STATUS", "STATUES_NAME", "ACTIVATED",
     "Card account status ", "CREATION_DATE",
 ]
 
 # Categorical columns to label-encode
-CATEGORICAL_COLS = ["STATUS", "STATUS_NAME", "ACTIVATED", "Card account status "]
+CATEGORICAL_COLS = ["STATUS", "STATUES_NAME", "ACTIVATED", "Card account status "]
 
 # Columns to drop before modeling (identifiers / dates)
 DROP_COLS = ["CUSTOMER_ID", "CREATION_DATE", "churn"]
@@ -75,7 +77,7 @@ DROP_COLS = ["CUSTOMER_ID", "CREATION_DATE", "churn"]
 # ---------------------------------------------------------------------------
 # Dates
 # ---------------------------------------------------------------------------
-REFERENCE_DATE = "2026-02-28"
+REFERENCE_DATE = "2026-05-31"
 
 # ---------------------------------------------------------------------------
 # Model hyperparameters

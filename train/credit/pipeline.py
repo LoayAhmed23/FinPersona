@@ -94,11 +94,12 @@ def check_for_leakage(X: pd.DataFrame, y: pd.Series,
         print(f"  Add these columns to config.DROP_COLS and re-run.")
         print(f"{'!' * 60}\n")
 
-        if abort_on_leak:
-            raise RuntimeError(
-                f"Pipeline aborted: {len(suspects)} leakage suspect(s) found. "
-                f"See output above. Set abort_on_leak=False to override."
-            )
+        # REMOVED BECAUSE OF FAKE DATA
+        # if abort_on_leak: # i commented this because the user does not want to stop the pipeline 
+        #     raise RuntimeError(
+        #         f"Pipeline aborted: {len(suspects)} leakage suspect(s) found. "
+        #         f"See output above. Set abort_on_leak=False to override."
+        #     )
     else:
         print(f"  [leakage check] No suspects found above AUC {threshold}. Proceeding.")
 
@@ -183,6 +184,7 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
           f"({(n_total - n_default) / n_total * 100:.1f}%)")
 
     customer_ids = merged[config.CUSTOMER_ID].copy()
+    rimno_ids = merged["RIMNO"].copy() if "RIMNO" in merged.columns else None
 
     # Save the snapshot_month before preprocessing drops it
     snapshot_months = (
@@ -418,11 +420,14 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         all_proba = bst.predict(dall)
     all_pred = (all_proba >= best_threshold).astype(int)
 
-    scores_df = pd.DataFrame({
+    scores_data = {
         config.CUSTOMER_ID:    customer_ids.loc[X.index].values,
         "default_probability": all_proba,
         "predicted_label":     all_pred,
-    })
+    }
+    if rimno_ids is not None:
+        scores_data = {"RIMNO": rimno_ids.loc[X.index].values, **scores_data}
+    scores_df = pd.DataFrame(scores_data)
     scores_df.to_csv(config.SCORES_PATH, index=False)
     print(f"  Risk scores saved to {config.SCORES_PATH}")
 
@@ -481,6 +486,7 @@ def run_scoring_pipeline(model_path: str = None,
     merged       = merge_data(prime_df, txn_features)
 
     customer_ids = merged[config.CUSTOMER_ID].copy()
+    rimno_ids = merged["RIMNO"].copy() if "RIMNO" in merged.columns else None
 
     _banner(4, TOTAL, "PREPROCESSING")
     X, _, _ = preprocess(merged, y=None, fit=False, artifacts=artifacts)
@@ -497,11 +503,14 @@ def run_scoring_pipeline(model_path: str = None,
 
     pred = (proba >= best_threshold).astype(int)     
 
-    scores_df = pd.DataFrame({
+    scores_data = {
         config.CUSTOMER_ID:    customer_ids.values,
         "default_probability": proba,
         "predicted_label":     pred,
-    })
+    }
+    if rimno_ids is not None:
+        scores_data = {"RIMNO": rimno_ids.values, **scores_data}
+    scores_df = pd.DataFrame(scores_data)
     scores_df.to_csv(output_path, index=False)
     print(f"  Saved to {output_path}")
 

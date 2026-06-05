@@ -21,9 +21,29 @@ CREDIT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CREDIT_DIR not in sys.path:
     sys.path.insert(0, CREDIT_DIR)
 
+import numpy as np
+
 import config
 
 app = Flask(__name__)
+
+
+# ── Custom JSON provider to handle numpy types ──
+class NumpySafeJSONProvider(app.json_provider_class):
+    """Extend Flask's default JSON provider to serialize numpy scalars."""
+
+    def default(self, o):
+        if isinstance(o, (np.integer,)):
+            return int(o)
+        if isinstance(o, (np.floating,)):
+            return float(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        return super().default(o)
+
+
+app.json_provider_class = NumpySafeJSONProvider
+app.json = NumpySafeJSONProvider(app)
 
 # ── Persistence paths ──
 SAVE_DIR = os.path.join(config.OUTPUT_DIR)
@@ -339,31 +359,36 @@ def api_score():
 
 @app.route("/api/lookup", methods=["POST"])
 def api_lookup():
-    """Look up a customer's risk score from the scored CSV."""
+    """Look up a customer's risk score from the scored CSV by RIMNO."""
     if not os.path.exists(config.SCORES_PATH):
         return jsonify({"error": "No scores available. Run training or scoring first."}), 400
 
     data = request.json or {}
-    customer_id_raw = str(data.get("customer_id", "")).strip()
-    if not customer_id_raw:
-        return jsonify({"error": "Please provide a Customer ID."}), 400
+    rimno_raw = str(data.get("rimno", "")).strip()
+    if not rimno_raw:
+        return jsonify({"error": "Please provide a RIMNO."}), 400
 
     try:
-        customer_id = int(customer_id_raw)
+        rimno = int(rimno_raw)
     except ValueError:
-        return jsonify({"error": f"Invalid Customer ID: '{customer_id_raw}'. Must be an integer."}), 400
+        return jsonify({"error": f"Invalid RIMNO: '{rimno_raw}'. Must be an integer."}), 400
 
     try:
         import pandas as pd
         scores = pd.read_csv(config.SCORES_PATH)
-        match = scores[scores[config.CUSTOMER_ID] == customer_id]
+
+        if "RIMNO" not in scores.columns:
+            return jsonify({"error": "RIMNO column not found in scores. Please re-run training or scoring."}), 400
+
+        match = scores[scores["RIMNO"] == rimno]
 
         if match.empty:
-            return jsonify({"error": f"Customer ID {customer_id} not found in scores."}), 404
+            return jsonify({"error": f"RIMNO {rimno} not found in scores."}), 404
 
         row = match.iloc[0]
         prob = round(float(row["default_probability"]) * 100, 2)
         label = int(row["predicted_label"])
+        customer_id = int(row[config.CUSTOMER_ID]) if config.CUSTOMER_ID in scores.columns else None
 
         # Determine risk tier
         if prob >= 70:
@@ -376,6 +401,7 @@ def api_lookup():
             risk_tier = "Low"
 
         return jsonify({
+            "rimno": rimno,
             "customer_id": customer_id,
             "default_probability": prob,
             "predicted_label": label,
@@ -388,7 +414,7 @@ def api_lookup():
 
 @app.route("/api/customers")
 def api_customers():
-    """Return customer IDs from scores CSV for autocomplete."""
+    """Return RIMNOs from scores CSV for autocomplete."""
     if not os.path.exists(config.SCORES_PATH):
         return jsonify({"customers": []})
 
@@ -396,7 +422,9 @@ def api_customers():
     try:
         import pandas as pd
         scores = pd.read_csv(config.SCORES_PATH)
-        ids = scores[config.CUSTOMER_ID].dropna().astype(int).tolist()
+        if "RIMNO" not in scores.columns:
+            return jsonify({"customers": []})
+        ids = scores["RIMNO"].dropna().astype(int).tolist()
         if q:
             ids = [cid for cid in ids if q in str(cid)]
         return jsonify({"customers": ids[:50]})

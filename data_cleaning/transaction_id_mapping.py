@@ -3,6 +3,16 @@ import numpy as np
 import glob
 import os
 
+# ========================= Project Paths =========================
+# Resolve project root from this script's location (data_cleaning/ -> project root)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+
+PRIME_CLEANED_DIR = os.path.join(PROJECT_ROOT, "data", "cleaned", "prime")
+TRANSACTION_INPUT_DIR = os.path.join(PROJECT_ROOT, "data", "original", "transaction")
+TRANSACTION_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "cleaned", "transaction")
+TRANSACTION_MISSING_DIR = os.path.join(TRANSACTION_OUTPUT_DIR, "missing")
+
 
 # ========================= Helper Functions (from main.py) =========================
 def apply_cast_and_report(df, columns, cast_type):
@@ -52,11 +62,11 @@ transaction_date_cols = ["TRXN DATE", "POST DATE"]
 # ========================= Build CUSTOMER_ID Lookup from Active Prime Files =========================
 print("Building (RIMNO, PRODUCT_NAME) -> CUSTOMER_ID lookup from active prime files...\n")
 
-active_dir = "prime_cleaned"
+active_dir = PRIME_CLEANED_DIR
 active_files = glob.glob(os.path.join(active_dir, "*_active.csv"))
 
 if not active_files:
-    print(f"ERROR: No active files found in '{active_dir}/'. Run prime_data_cleaning.py first.")
+    print(f"ERROR: No active files found in '{active_dir}/'. Run prime_pipeline.py first.")
     exit(1)
 
 print(f"Found {len(active_files)} active file(s):")
@@ -78,13 +88,14 @@ print(f"\n  Unique (RIMNO, PRODUCT_NAME) -> CUSTOMER_ID mappings: {len(customer_
 
 
 # ========================= Find All Transaction Files =========================
-transaction_output_dir = "transaction_cleaned"
+transaction_output_dir = TRANSACTION_OUTPUT_DIR
 os.makedirs(transaction_output_dir, exist_ok=True)
+os.makedirs(TRANSACTION_MISSING_DIR, exist_ok=True)
 
-transaction_files = glob.glob("transaction/*.xlsx")
+transaction_files = glob.glob(os.path.join(TRANSACTION_INPUT_DIR, "*.xlsx"))
 
 if not transaction_files:
-    print("\nERROR: No Excel files found in 'transaction/' folder.")
+    print(f"\nERROR: No Excel files found in '{TRANSACTION_INPUT_DIR}'.")
     exit(1)
 
 print(f"\nFound {len(transaction_files)} transaction file(s).\n")
@@ -142,7 +153,7 @@ for file in transaction_files:
 
     # --- Save unmatched ---
     if len(missing_df) > 0:
-        missing_path = os.path.join(transaction_output_dir, f"{file_basename}_missing_id.csv")
+        missing_path = os.path.join(TRANSACTION_MISSING_DIR, f"{file_basename}_missing_id.csv")
         missing_df.to_csv(missing_path, index=False)
         print(f"  Saved -> {missing_path}")
 
