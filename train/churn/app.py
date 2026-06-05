@@ -12,6 +12,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import sys
 import json
+import glob
 import threading
 import traceback
 
@@ -19,6 +20,11 @@ import traceback
 CHURN_DIR = os.path.dirname(os.path.abspath(__file__))
 if CHURN_DIR not in sys.path:
     sys.path.insert(0, CHURN_DIR)
+
+# Also ensure the project root is on sys.path so data_cleaning can be imported
+PROJECT_ROOT = os.path.abspath(os.path.join(CHURN_DIR, "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import config
 
@@ -91,6 +97,87 @@ def _load_state_meta():
 _load_state_meta()
 
 
+# ── Data-cleaning helper ──
+
+def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
+    """Ensure cleaned data directories exist; run cleaning pipelines if needed.
+
+    The churn module needs three directories:
+      1. **raw prime** — for churn labeling (reads raw CSVs like FEB2026.csv)
+      2. **cleaned prime** — for feature engineering (reads *_active.csv)
+      3. **cleaned transaction** — for feature engineering (reads *.csv)
+
+    The user supplies at most two paths from the UI (prime_dir, txn_dir).
+    This function resolves all three by:
+      - Normalising away any trailing ``_cleaned`` so we never double-suffix
+      - Checking if the cleaned sibling exists; if not, running the pipeline
+
+    Returns
+    -------
+    (raw_prime_dir, cleaned_prime_dir, cleaned_txn_dir)
+    """
+    def _log(msg):
+        if log_fn:
+            log_fn(msg)
+        print(msg)
+
+    def _resolve_raw_and_cleaned(user_dir, default_raw, default_cleaned):
+        """Return (raw_dir, cleaned_dir) from whatever the user gave us."""
+        if user_dir:
+            base = user_dir.rstrip("/\\")
+            if base.endswith("_cleaned"):
+                base = base[: -len("_cleaned")]
+            return base, base + "_cleaned"
+        else:
+            return default_raw, default_cleaned
+
+    # Default directories from config
+    default_raw_prime = config.RAW_PRIME_DATA_DIR
+    default_raw_txn = os.path.join(config.DATA_DIR, "transaction")
+
+    # ── Prime ──
+    raw_prime, cleaned_prime = _resolve_raw_and_cleaned(
+        prime_dir, default_raw_prime, config.CLEANED_PRIME_DATA_DIR,
+    )
+
+    has_prime = (
+        os.path.isdir(cleaned_prime)
+        and glob.glob(os.path.join(cleaned_prime, "*_active.csv"))
+    )
+    if not has_prime:
+        _log(f"[AUTO-CLEAN] '{cleaned_prime}' not found or empty — running prime cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_prime}")
+        from data_cleaning.prime_id_creation import run as run_prime_cleaning
+        run_prime_cleaning(input_dir=raw_prime, output_dir=cleaned_prime)
+        _log(f"[AUTO-CLEAN] Prime cleaning complete -> {cleaned_prime}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned prime data at '{cleaned_prime}' — skipping.")
+
+    # ── Transaction ──
+    raw_txn, cleaned_txn = _resolve_raw_and_cleaned(
+        txn_dir, default_raw_txn, config.CLEANED_TRANSACTION_DATA_DIR,
+    )
+
+    has_txn = (
+        os.path.isdir(cleaned_txn)
+        and glob.glob(os.path.join(cleaned_txn, "*.csv"))
+    )
+    if not has_txn:
+        _log(f"[AUTO-CLEAN] '{cleaned_txn}' not found or empty — running transaction cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_txn}")
+        from data_cleaning.transaction_id_mapping import run as run_txn_cleaning
+        run_txn_cleaning(
+            prime_cleaned_dir=cleaned_prime,
+            transaction_input_dir=raw_txn,
+            transaction_output_dir=cleaned_txn,
+        )
+        _log(f"[AUTO-CLEAN] Transaction cleaning complete -> {cleaned_txn}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned transaction data at '{cleaned_txn}' — skipping.")
+
+    return raw_prime, cleaned_prime, cleaned_txn
+
+
 # ── Routes ──
 
 @app.route("/")
@@ -154,19 +241,26 @@ def api_train():
 
             log(f"[START] {'Tuned' if tune else 'Default'} training pipeline ...")
 
-            # Step 1: Churn labeling
+            # ── Auto-clean raw directories if needed ──
+            pipeline_state["progress_pct"] = 7
+            log("[PRE-CHECK] Verifying cleaned data directories ...")
+            raw_prime, cleaned_prime, cleaned_txn = _ensure_cleaned_dirs(
+                prime_dir, txn_dir, log_fn=log,
+            )
+
+            # Step 1: Churn labeling (uses RAW prime files)
             pipeline_state["progress_pct"] = 10
             log("[STEP 1/7] Creating churn labels ...")
             from data_loader import create_churn_labels, load_transaction_data, load_prime_data
-            churn_labels = create_churn_labels(prime_dir)
+            churn_labels = create_churn_labels(raw_prime)
             n_churned_label = int(churn_labels[config.TARGET_COL].sum())
             log(f"  Labeled {len(churn_labels):,} customers — {n_churned_label:,} churned")
 
-            # Step 2: Load data
+            # Step 2: Load data (uses CLEANED dirs)
             pipeline_state["progress_pct"] = 20
-            log("[STEP 2/7] Loading raw data & cleaning ...")
-            prime_df = load_prime_data(prime_dir)
-            txn_df = load_transaction_data(txn_dir)
+            log("[STEP 2/7] Loading cleaned data ...")
+            prime_df = load_prime_data(cleaned_prime)
+            txn_df = load_transaction_data(cleaned_txn)
             log(f"  Transactions: {len(txn_df):,} rows")
             log(f"  Prime: {len(prime_df):,} rows")
 

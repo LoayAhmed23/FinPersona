@@ -3,13 +3,14 @@ Pipeline of the Credit Risk Module
 """
 
 import os
+import argparse
+import sys
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_auc_score
 from imblearn.over_sampling import SMOTE
-
 
 import config
 from data_loader import load_prime_data, load_transaction_data, merge_data
@@ -110,15 +111,15 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
 
     Parameters
     ----------
-    tune
+    tune : bool
         If True, run RandomizedSearchCV for hyperparameter tuning instead
         of training with the default parameters.
     sample : bool
         If True, use only 25% of the data (stratified) for fast iteration.
-    prime_dir : str, optional
-        Directory containing raw prime CSV files. Defaults to config.
-    txn_dir : str, optional
-        Directory containing raw transaction files. Defaults to config.
+    prime_dir : str or None
+        Path to cleaned prime data directory. Defaults to config.
+    txn_dir : str or None
+        Path to cleaned transaction data directory. Defaults to config.
     """
     TOTAL = 13
     _ensure_output_dir()
@@ -421,3 +422,73 @@ def run_scoring_pipeline(model_path: str = None,
     print("=" * 60)
 
     return scores_df
+
+
+def main():
+    """
+    CLI entry point for the Credit Risk Prediction System.
+
+    Usage
+    -----
+        python main.py train          # Train with default XGBoost params
+        python main.py tune           # Train with hyperparameter tuning
+        python main.py score          # Score new data with a saved model
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Credit Risk Prediction System",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # --- train ---
+    train_parser = sub.add_parser("train", help="Train the model with default hyperparameters")
+    train_parser.add_argument("--sample", action="store_true", help="Use stratified 25% of data for rapid training/debugging")
+
+    # --- tune ---
+    tune_parser = sub.add_parser("tune", help="Train with RandomizedSearchCV hyperparameter tuning")
+    tune_parser.add_argument("--sample", action="store_true", help="Use stratified 25% of data for rapid tuning/debugging")
+
+    # --- score ---
+    score_parser = sub.add_parser("score", help="Score new data using a saved model")
+    score_parser.add_argument(
+        "--model", default=config.MODEL_PATH,
+        help="Path to saved model (.joblib)",
+    )
+    score_parser.add_argument(
+        "--prime-dir", default=config.PRIME_DATA_DIR,
+        help="Directory with new prime CSVs",
+    )
+    score_parser.add_argument(
+        "--txn-dir", default=config.TRANSACTION_DATA_DIR,
+        help="Directory with new transaction CSVs",
+    )
+    score_parser.add_argument(
+        "--output", default=config.SCORES_PATH,
+        help="Output CSV path for risk scores",
+    )
+
+    args = parser.parse_args()
+
+    if args.command == "train":
+        metrics = run_training_pipeline(tune=False, sample=args.sample)
+        print("\nDone. Metrics:", metrics)
+
+    elif args.command == "tune":
+        metrics = run_training_pipeline(tune=True, sample=args.sample)
+        print("\nDone. Metrics:", metrics)
+
+    elif args.command == "score":
+        run_scoring_pipeline(
+            model_path=args.model,
+            prime_dir=args.prime_dir,
+            txn_dir=args.txn_dir,
+            output_path=args.output,
+        )
+
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -15,11 +15,17 @@ import json
 import threading
 import traceback
 import io
+import glob
 
 # Ensure the credit module directory is on sys.path so local imports work
 CREDIT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CREDIT_DIR not in sys.path:
     sys.path.insert(0, CREDIT_DIR)
+
+# Also ensure the project root is on sys.path so data_cleaning can be imported
+PROJECT_ROOT = os.path.abspath(os.path.join(CREDIT_DIR, "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 import numpy as np
 
@@ -129,6 +135,87 @@ def _load_state_meta():
 _load_state_meta()
 
 
+# ── Data-cleaning helper ──
+
+def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
+    """Check for ``_cleaned`` sibling directories; run cleaning pipelines if missing.
+
+    Accepts either the *raw* directory (e.g. ``data/prime``) **or** the
+    *cleaned* directory (``data/prime_cleaned``) — the function normalises
+    both to the same ``(raw, cleaned)`` pair so users can point at either one.
+
+    When no directory is provided (None), the function checks the *default*
+    cleaned directories from ``config``.  If those are empty/missing it runs
+    the cleaning pipelines using the default raw data directories.
+
+    Returns
+    -------
+    (prime_cleaned_dir, txn_cleaned_dir)
+        Paths to the cleaned directories that should be passed downstream.
+    """
+    def _log(msg):
+        if log_fn:
+            log_fn(msg)
+        print(msg)
+
+    def _resolve_raw_and_cleaned(user_dir, default_raw, default_cleaned):
+        """Return (raw_dir, cleaned_dir) from whatever the user gave us."""
+        if user_dir:
+            base = user_dir.rstrip("/\\")
+            # Strip trailing _cleaned so we never double-suffix
+            if base.endswith("_cleaned"):
+                base = base[: -len("_cleaned")]
+            return base, base + "_cleaned"
+        else:
+            return default_raw, default_cleaned
+
+    # Default raw-data directories (siblings of the cleaned ones)
+    default_raw_prime = os.path.join(config.DATA_DIR, "prime")
+    default_raw_txn = os.path.join(config.DATA_DIR, "transaction")
+
+    # ── Prime ──
+    raw_prime, prime_cleaned_dir = _resolve_raw_and_cleaned(
+        prime_dir, default_raw_prime, config.PRIME_DATA_DIR,
+    )
+
+    has_prime = (
+        os.path.isdir(prime_cleaned_dir)
+        and glob.glob(os.path.join(prime_cleaned_dir, "*_active.csv"))
+    )
+    if not has_prime:
+        _log(f"[AUTO-CLEAN] '{prime_cleaned_dir}' not found or empty — running prime cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_prime}")
+        from data_cleaning.prime_id_creation import run as run_prime_cleaning
+        run_prime_cleaning(input_dir=raw_prime, output_dir=prime_cleaned_dir)
+        _log(f"[AUTO-CLEAN] Prime cleaning complete -> {prime_cleaned_dir}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned prime data at '{prime_cleaned_dir}' — skipping cleaning.")
+
+    # ── Transaction ──
+    raw_txn, txn_cleaned_dir = _resolve_raw_and_cleaned(
+        txn_dir, default_raw_txn, config.TRANSACTION_DATA_DIR,
+    )
+
+    has_txn = (
+        os.path.isdir(txn_cleaned_dir)
+        and glob.glob(os.path.join(txn_cleaned_dir, "*.csv"))
+    )
+    if not has_txn:
+        _log(f"[AUTO-CLEAN] '{txn_cleaned_dir}' not found or empty — running transaction cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_txn}")
+        from data_cleaning.transaction_id_mapping import run as run_txn_cleaning
+        run_txn_cleaning(
+            prime_cleaned_dir=prime_cleaned_dir,
+            transaction_input_dir=raw_txn,
+            transaction_output_dir=txn_cleaned_dir,
+        )
+        _log(f"[AUTO-CLEAN] Transaction cleaning complete -> {txn_cleaned_dir}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned transaction data at '{txn_cleaned_dir}' — skipping cleaning.")
+
+    return prime_cleaned_dir, txn_cleaned_dir
+
+
 # ── Routes ──
 
 @app.route("/")
@@ -210,12 +297,17 @@ def api_train():
             if sample:
                 log("[INFO] Using 25% stratified sample for fast iteration.")
 
+            # ── Auto-clean raw directories if needed ──
+            pipeline_state["progress_pct"] = 7
+            log("[PRE-CHECK] Verifying cleaned data directories ...")
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=log)
+
             pipeline_state["progress_pct"] = 10
             log("[STEP 1/13] Loading data ...")
 
             from data_loader import load_prime_data, load_transaction_data, merge_data
-            prime_df = load_prime_data(prime_dir)
-            txn_df = load_transaction_data(txn_dir)
+            prime_df = load_prime_data(prime_cleaned)
+            txn_df = load_transaction_data(txn_cleaned)
             log(f"  Prime rows: {len(prime_df):,}")
             log(f"  Transaction rows: {len(txn_df):,}")
 
@@ -255,10 +347,10 @@ def api_train():
             pipeline_state["progress_pct"] = 50
             log("[STEP 6-13] Running full pipeline ...")
 
-            # Now run the actual pipeline
+            # Now run the actual pipeline (pass cleaned dirs)
             metrics = credit_pipeline.run_training_pipeline(
                 tune=tune, sample=sample,
-                prime_dir=prime_dir, txn_dir=txn_dir,
+                prime_dir=prime_cleaned, txn_dir=txn_cleaned,
             )
 
             pipeline_state["metrics"] = {
@@ -333,11 +425,15 @@ def api_score():
                 log(f"  Prime dir: {prime_dir}")
             if txn_dir:
                 log(f"  Transaction dir: {txn_dir}")
+
+            # ── Auto-clean raw directories if needed ──
+            log("[PRE-CHECK] Verifying cleaned data directories ...")
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=log)
             pipeline_state["progress_pct"] = 30
 
             scores_df = credit_pipeline.run_scoring_pipeline(
-                prime_dir=prime_dir,
-                txn_dir=txn_dir,
+                prime_dir=prime_cleaned,
+                txn_dir=txn_cleaned,
             )
 
             n_flagged = int(scores_df["predicted_label"].sum())

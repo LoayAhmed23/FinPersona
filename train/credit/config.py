@@ -10,8 +10,8 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
 # Data directories
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-PRIME_DATA_DIR = os.path.join(DATA_DIR, "original", "prime")
-TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "original", "transaction")
+PRIME_DATA_DIR = os.path.join(DATA_DIR, "prime_cleaned")
+TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction_cleaned")
 
 # Output 
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "models")

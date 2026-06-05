@@ -1,48 +1,32 @@
 """
 Data loading for the Churn Module.
 
-Reads **raw** prime and transaction files, applies the data-cleaning
-pipeline (from ``data_cleaning.clean``), then creates churn labels.
+Loads monthly prime files, transaction files, creates the churn label
 """
 
 import glob
 import os
-import sys
 
 import pandas as pd
 
 import config
 
-# Make the project-level ``data_cleaning`` package importable
-_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
 
-from data_cleaning.clean import clean_prime, clean_transactions
-
-
-# ═══════════════════════════════════════════════════════════════
-#  Churn labeling
-# ═══════════════════════════════════════════════════════════════
-
-def create_churn_labels(data_dir: str = None) -> pd.DataFrame:
-    """Label customers as churned based on presence across start/end months.
+# Churn labeling
+def create_churn_labels(data_dir = None) -> pd.DataFrame:
+    """Label customers as churned based on presence across the start and end months.
 
     If a CUSTOMER_ID exists in the reference month but NOT in the
     target month (or has a WROF status) → churn = 1, else churn = 0.
 
-    The function reads the **raw** prime CSV files specified in
-    ``config.CHURN_LABEL_FILES`` and applies basic cleaning (rename
-    columns, strip whitespace) before labeling.
-
     Returns
     -------
-    pd.DataFrame with columns: [CUSTOMER_ID, Card account status, CHURN]
+    pd.DataFrame with columns: [CUSTOMER_ID, Card account status, churn]
     """
-    data_dir = data_dir or config.PRIME_DATA_DIR
-
     ref_key = config.CHURN_REFERENCE_MONTH
     tgt_key = config.CHURN_TARGET_MONTH
+
+    data_dir = data_dir or config.RAW_PRIME_DATA_DIR
 
     ref_path = os.path.join(data_dir, config.CHURN_LABEL_FILES[ref_key])
     tgt_path = os.path.join(data_dir, config.CHURN_LABEL_FILES[tgt_key])
@@ -85,10 +69,7 @@ def create_churn_labels(data_dir: str = None) -> pd.DataFrame:
 
 
 def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
-    """Load a single raw CSV for churn labeling.
-
-    Handles the RIM_NO → CUSTOMER_ID rename for raw files.
-    """
+    """Load a single CSV for churn labeling."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"[{label}] File not found: {filepath}")
 
@@ -106,7 +87,8 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
         elif c == canonical_id and raw_id in header_cols:
             resolved.append(raw_id)
             rename_map[raw_id] = canonical_id
-    
+        
+
     if not resolved:
         raise ValueError(f"[{label}] None of {usecols} found in {filepath}")
 
@@ -123,34 +105,30 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
     return df
 
 
-# ═══════════════════════════════════════════════════════════════
-#  Transaction data
-# ═══════════════════════════════════════════════════════════════
 
+# Transaction data
 def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
-    """Load and clean all raw transaction files.
+    """Load and concatenate all transaction CSV files."""
+    data_dir = data_dir or config.CLEANED_TRANSACTION_DATA_DIR
+    files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
+    if not files:
+        raise FileNotFoundError(f"No CSV files found in {data_dir}")
 
-    Calls ``clean_transactions()`` from ``data_cleaning.clean``
-    to cast columns, map CUSTOMER_ID, and return cleaned rows.
-    """
-    data_dir = data_dir or config.TRANSACTION_DATA_DIR
+    dfs = []
+    for f in files:
+        df = pd.read_csv(f, encoding="latin")
+        df[config.TXN_DATE_COL] = pd.to_datetime(df[config.TXN_DATE_COL], errors="coerce")
+        dfs.append(df)
 
-    # Get the CUSTOMER_ID mapping from the previous prime load
-    cid_mapping = getattr(load_prime_data, "_cid_mapping", None)
-    if cid_mapping is None:
-        raise RuntimeError(
-            "load_prime_data() must be called before load_transaction_data() "
-            "to build the CUSTOMER_ID mapping."
-        )
+    combined = pd.concat(dfs, ignore_index=True)
 
-    # Run cleaning pipeline
-    combined = clean_transactions(data_dir, cid_mapping)
-
-    # Parse transaction dates
-    if config.TXN_DATE_COL in combined.columns:
-        combined[config.TXN_DATE_COL] = pd.to_datetime(
-            combined[config.TXN_DATE_COL], errors="coerce"
-        )
+    # Replace fake sequential CUSTOMER_ID with real RIMNO
+    raw_id = config.TXN_CUSTOMER_ID_RAW
+    canonical_id = config.CUSTOMER_ID
+    if raw_id in combined.columns:
+        if canonical_id in combined.columns:
+            combined = combined.drop(columns=[canonical_id])
+        combined = combined.rename(columns={raw_id: canonical_id})
 
     # Map reversal flag to numeric
     if config.TXN_REVERSAL_COL in combined.columns:
@@ -162,31 +140,31 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     combined = combined.dropna(subset=[config.CUSTOMER_ID])
     combined[config.CUSTOMER_ID] = combined[config.CUSTOMER_ID].astype(str).str.strip()
 
-    print(f"[data_loader] Transaction data shape: {combined.shape}")
+    print(f"[data_loader] Loaded {len(files)} transaction file(s) -> {combined.shape}")
     return combined
 
 
-# ═══════════════════════════════════════════════════════════════
-#  Prime data
-# ═══════════════════════════════════════════════════════════════
 
+# Prime data
 def load_prime_data(data_dir: str = None) -> pd.DataFrame:
-    """Load and clean all raw prime (customer snapshot) CSV files.
+    """Load and concatenate all prime (customer snapshot) CSV files."""
+    data_dir = data_dir or config.CLEANED_PRIME_DATA_DIR
+    files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
+    if not files:
+        raise FileNotFoundError(f"No CSV files found in {data_dir}")
 
-    Calls ``clean_prime()`` from ``data_cleaning.clean`` to cast, fill,
-    assign CUSTOMER_ID, and split active records.
-    """
-    data_dir = data_dir or config.PRIME_DATA_DIR
+    dfs = []
+    for f in files:
+        print(f"  Loading {os.path.basename(f)} ...")
+        df = pd.read_csv(f, encoding="latin")
+        # Rename raw customer ID column to canonical name
+        raw_id = config.PRIME_CUSTOMER_ID_RAW
+        if raw_id in df.columns and config.CUSTOMER_ID not in df.columns:
+            df = df.rename(columns={raw_id: config.CUSTOMER_ID})
+        dfs.append(df)
 
-    # Run cleaning pipeline
-    active_df, cid_mapping = clean_prime(data_dir)
-
-    # Store mapping for later use by transaction loader
-    load_prime_data._cid_mapping = cid_mapping
-
-    # Ensure canonical customer ID column
-    combined = active_df
+    combined = pd.concat(dfs, ignore_index=True)
     combined[config.CUSTOMER_ID] = combined[config.CUSTOMER_ID].astype(str).str.strip()
 
-    print(f"[data_loader] Loaded prime data -> {combined.shape}")
+    print(f"[data_loader] Loaded {len(files)} prime file(s) -> {combined.shape}")
     return combined

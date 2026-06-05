@@ -3,6 +3,8 @@ Complete Pipeline of the Churn Module
 """
 
 import os
+import argparse
+import sys
 
 from sklearn.model_selection import train_test_split
 
@@ -31,7 +33,9 @@ def _banner(step, total, title):
 
 # Training pipeline
 def run_training_pipeline(tune: bool = False,
-                          prime_dir: str = None, txn_dir: str = None):
+                          raw_prime_dir: str = None, 
+                          cleaned_prime_dir: str = None, 
+                          cleaned_trx_dir: str = None):
     """Full training pipeline of Churn Prediction Module.
 
     Parameters
@@ -39,22 +43,24 @@ def run_training_pipeline(tune: bool = False,
     tune : bool
         If True, run GridSearchCV for RF and XGBoost after the initial
         multi-classifier comparison.
-    prime_dir : str, optional
-        Directory containing raw prime CSV files. Defaults to config.
-    txn_dir : str, optional
-        Directory containing raw transaction files. Defaults to config.
+    raw_prime_dir : str, optional
+        Directory containing raw prime CSV files (for churn labeling).
+    cleaned_prime_dir : str, optional
+        Directory containing cleaned prime CSV files (for features).
+    cleaned_trx_dir : str, optional
+        Directory containing cleaned transaction CSV files (for features).
     """
     TOTAL = 8 if tune else 7
     _ensure_output_dir()
 
     # Churn Labeling
     _banner(1, TOTAL, "CHURN LABELING")
-    churn_labels = create_churn_labels(prime_dir)
+    churn_labels = create_churn_labels(raw_prime_dir)
 
     # Load Data
     _banner(2, TOTAL, "LOADING DATA")
-    prime_df = load_prime_data(prime_dir)
-    txn_df = load_transaction_data(txn_dir)
+    prime_df = load_prime_data(cleaned_prime_dir)
+    txn_df = load_transaction_data(cleaned_trx_dir)
 
     # Feature Engineering
     _banner(3, TOTAL, "FEATURE ENGINEERING")
@@ -163,3 +169,44 @@ def run_training_pipeline(tune: bool = False,
     print("=" * 60)
 
     return metrics_df
+
+def main():
+    """
+    CLI entry point for the Churn Prediction System.
+
+    Usage
+    -----
+        python main.py train          # Train all classifiers
+        python main.py tune           # Train + GridSearch tuning for RF/XGBoost
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Churn Prediction System",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # --- train ---
+    sub.add_parser("train", help="Train all classifiers and compare")
+
+    # --- tune ---
+    sub.add_parser("tune", help="Train + GridSearchCV hyperparameter tuning")
+
+    args = parser.parse_args()
+
+    if args.command == "train":
+        metrics = run_training_pipeline(tune=False)
+        print("\nDone. Best model metrics:")
+        print(metrics.iloc[0].to_string())
+
+    elif args.command == "tune":
+        metrics = run_training_pipeline(tune=True)
+        print("\nDone. Best model metrics:")
+        print(metrics.iloc[0].to_string())
+
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
