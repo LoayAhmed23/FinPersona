@@ -12,31 +12,31 @@
            DESIGN SYSTEM — FinPersona Banking Theme
            ══════════════════════════════════════════════════════════ */
         :root {
-            --bg-base: #060d1a;
-            --bg-sidebar: #0a1628;
-            --bg-card: #0f1d32;
-            --bg-card-hover: #142540;
-            --bg-input: #0b1526;
-            --text-main: #e8ecf4;
-            --text-muted: #7a8ba8;
-            --text-dim: #4a5d7a;
-            --border: #1a2d4a;
-            --border-light: #243a5c;
-            --gold: #c9a84c;
-            --gold-hover: #d4b65e;
-            --gold-glow: rgba(201, 168, 76, 0.15);
-            --gold-dim: rgba(201, 168, 76, 0.08);
-            --blue: #3b82f6;
-            --blue-dim: rgba(59, 130, 246, 0.12);
-            --cyan: #06b6d4;
-            --cyan-dim: rgba(6, 182, 212, 0.12);
-            --green: #10b981;
-            --green-dim: rgba(16, 185, 129, 0.12);
-            --red: #ef4444;
-            --red-dim: rgba(239, 68, 68, 0.12);
-            --orange: #f59e0b;
-            --orange-dim: rgba(245, 158, 11, 0.12);
-            --purple: #8b5cf6;
+            --bg-base: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f1f5f9;
+            --bg-input: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --text-dim: #64748b;
+            --border: #e2e8f0;
+            --border-light: #cbd5e1;
+            --gold: #b58d1e;
+            --gold-hover: #9c7816;
+            --gold-glow: rgba(181, 141, 30, 0.2);
+            --gold-dim: rgba(181, 141, 30, 0.1);
+            --blue: #2563eb;
+            --blue-dim: rgba(37, 99, 235, 0.1);
+            --cyan: #0891b2;
+            --cyan-dim: rgba(8, 145, 178, 0.1);
+            --green: #059669;
+            --green-dim: rgba(5, 150, 105, 0.1);
+            --red: #dc2626;
+            --red-dim: rgba(220, 38, 38, 0.1);
+            --orange: #d97706;
+            --orange-dim: rgba(217, 119, 6, 0.1);
+            --purple: #7c3aed;
             --sidebar-w: 280px;
         }
 
@@ -193,8 +193,8 @@
             margin-left: var(--sidebar-w);
             min-height: 100vh;
             background:
-                radial-gradient(ellipse at 20% 0%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 100%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 20% 0%, rgba(181, 141, 30, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(37, 99, 235, 0.08) 0%, transparent 50%),
                 var(--bg-base);
         }
 
@@ -205,7 +205,7 @@
             align-items: center;
             justify-content: space-between;
             backdrop-filter: blur(12px);
-            background: rgba(6, 13, 26, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             position: sticky;
             top: 0;
             z-index: 50;
@@ -393,7 +393,7 @@
         /* ── Buttons ── */
         .fp-btn {
             background: linear-gradient(135deg, var(--gold), #b8972e);
-            color: #0a1628;
+            color: #ffffff;
             border: none;
             padding: 0.7rem 1.5rem;
             font-size: 0.9rem;
@@ -443,7 +443,7 @@
         }
 
         .fp-log {
-            background: rgba(6, 13, 26, 0.6);
+            background: var(--bg-card-hover);
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 0.85rem;
@@ -466,7 +466,7 @@
         }
 
         .fp-metric {
-            background: rgba(6, 13, 26, 0.4);
+            background: var(--bg-card-hover);
             border: 1px solid var(--border);
             border-radius: 0.6rem;
             padding: 0.85rem;
@@ -520,7 +520,7 @@
             display: none;
             margin-top: 1.25rem;
             padding: 1.25rem;
-            background: rgba(6, 13, 26, 0.4);
+            background: var(--bg-card-hover);
             border: 1px solid var(--border);
             border-radius: 0.65rem;
         }
@@ -546,7 +546,7 @@
         }
         .fp-table td {
             padding: 0.65rem 0.85rem;
-            border-bottom: 1px solid rgba(26, 45, 74, 0.5);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         }
         .fp-table tr:hover td { background: var(--gold-dim); }
         .fp-table tr.best-model td { background: rgba(201,168,76,0.06); font-weight: 600; }
@@ -555,7 +555,7 @@
 
         /* ── Report box ── */
         .fp-report {
-            background: rgba(6, 13, 26, 0.6);
+            background: var(--bg-card-hover);
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             padding: 1.25rem;
@@ -602,8 +602,8 @@
 
         /* ── Spinner ── */
         .spinner {
-            border: 2.5px solid rgba(10, 22, 40, 0.3);
-            border-left-color: #0a1628;
+            border: 2.5px solid rgba(255, 255, 255, 0.3);
+            border-left-color: #ffffff;
             border-radius: 50%;
             width: 18px; height: 18px;
             animation: spin 0.8s linear infinite;

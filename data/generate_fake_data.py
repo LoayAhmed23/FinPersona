@@ -30,7 +30,7 @@ os.makedirs(TXN_OUT, exist_ok=True)
 # ─── constants ──────────────────────────────────────────────────────────────
 N_BASE_CUSTOMERS = 1000
 N_NEW_MAY = 80          # new customers joining in MAY
-N_DROP_MAY = 60         # customers leaving before MAY
+N_DROP_MAY = 5          # exactly 5 customers dropping off for churn
 
 BRANCHES = [
     (1, "Cairo Main"), (2, "Giza"), (3, "Alexandria"),
@@ -114,18 +114,18 @@ DESCRIPTIONS = [
 # ═══════════════════════════════════════════════════════════════════════════
 # Weights for each status in each month — they shift over time
 STATUS_WEIGHTS = {
-    "FEB": {"NORM": 60, "NEW": 10, "30DD": 5, "60DA": 3, "90DA": 2,
-            "SUSP": 2, "WROF": 1, "CLSB": 4, "CLSC": 4, "CLSD": 2,
-            "LOST": 2, "CNCD": 2, "FRAD": 1},
-    "MAR": {"NORM": 55, "NEW": 8, "30DD": 7, "60DA": 4, "90DA": 3,
-            "SUSP": 3, "WROF": 2, "CLSB": 5, "CLSC": 4, "CLSD": 2,
-            "LOST": 2, "CNCD": 3, "FRAD": 1},
-    "APR": {"NORM": 50, "NEW": 6, "30DD": 8, "60DA": 5, "90DA": 4,
-            "SUSP": 4, "WROF": 3, "CLSB": 5, "CLSC": 5, "CLSD": 3,
-            "LOST": 3, "CNCD": 3, "FRAD": 2},
-    "MAY": {"NORM": 52, "NEW": 12, "30DD": 6, "60DA": 4, "90DA": 3,
-            "SUSP": 3, "WROF": 2, "CLSB": 4, "CLSC": 5, "CLSD": 2,
-            "LOST": 2, "CNCD": 3, "FRAD": 1},
+    "FEB": {"NORM": 90, "NEW": 5, "30DD": 3, "60DA": 1, "90DA": 1,
+            "SUSP": 0, "WROF": 0, "CLSB": 0, "CLSC": 0, "CLSD": 0,
+            "LOST": 0, "CNCD": 0, "FRAD": 0},
+    "MAR": {"NORM": 90, "NEW": 5, "30DD": 3, "60DA": 1, "90DA": 1,
+            "SUSP": 0, "WROF": 0, "CLSB": 0, "CLSC": 0, "CLSD": 0,
+            "LOST": 0, "CNCD": 0, "FRAD": 0},
+    "APR": {"NORM": 90, "NEW": 5, "30DD": 3, "60DA": 1, "90DA": 1,
+            "SUSP": 0, "WROF": 0, "CLSB": 0, "CLSC": 0, "CLSD": 0,
+            "LOST": 0, "CNCD": 0, "FRAD": 0},
+    "MAY": {"NORM": 90, "NEW": 5, "30DD": 3, "60DA": 1, "90DA": 1,
+            "SUSP": 0, "WROF": 0, "CLSB": 0, "CLSC": 0, "CLSD": 0,
+            "LOST": 0, "CNCD": 0, "FRAD": 0},
 }
 
 

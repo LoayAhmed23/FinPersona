@@ -61,6 +61,17 @@ def run_training_pipeline(tune: bool = False,
     txn_features = engineer_transaction_features(txn_df)
     prime_features = engineer_prime_features(prime_df)
 
+    # Map raw RIM_NO in churn_labels to numeric CUSTOMER_ID
+    mapping = getattr(load_prime_data, "_cid_mapping", None)
+    if mapping is not None:
+        rim_map = mapping[["RIMNO", config.CUSTOMER_ID]].drop_duplicates()
+        # churn_labels currently holds RIM_NO under the CUSTOMER_ID column name
+        churn_labels = churn_labels.rename(columns={config.CUSTOMER_ID: "RIMNO"})
+        churn_labels["RIMNO"] = churn_labels["RIMNO"].astype(str).str.strip()
+        rim_map["RIMNO"] = rim_map["RIMNO"].astype(str).str.strip()
+        churn_labels = churn_labels.merge(rim_map, on="RIMNO", how="inner")
+        churn_labels[config.CUSTOMER_ID] = churn_labels[config.CUSTOMER_ID].astype(str).str.strip()
+
     # Merge Datasets
     _banner(4, TOTAL, "MERGING DATASETS")
     final_df = merge_all(txn_features, prime_features, churn_labels)
