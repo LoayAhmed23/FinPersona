@@ -150,8 +150,38 @@ def _build_customer_pool(rim_start: int, count: int) -> dict:
         creation = datetime(2018, 1, 1) + timedelta(days=random.randint(0, 365 * 7))
         credit_limit = random.choice([5000, 10000, 15000, 20000, 30000,
                                       50000, 75000, 100000, 150000, 200000])
+        organization = random.choice(ORGANIZATIONS)
+
         n_products = random.choices([1, 2, 3], weights=[70, 20, 10])[0]
-        held_products = random.sample(PRODUCT_NAMES, n_products)
+        
+        # Correlate initial product based on demographics
+        held_products = []
+        if organization == "Self Employed":
+            held_products.append("Business Credit Card")
+        elif credit_limit >= 100000:
+            held_products.append(random.choice(["World Elite Card", "Platinum Credit Card"]))
+        elif credit_limit >= 50000:
+            held_products.append(random.choice(["Platinum Credit Card", "Titanium Credit Card"]))
+        else:
+            held_products.append(random.choice(["Classic Credit Card", "Gold Credit Card", "Cashback Card"]))
+            
+        # Product-to-Product correlation for CBF
+        if n_products > 1:
+            if "World Elite Card" in held_products or "Platinum Credit Card" in held_products:
+                if random.random() < 0.8:  # 80% chance to co-occur
+                    held_products.append("Travel Rewards Card")
+            if "Classic Credit Card" in held_products or "Gold Credit Card" in held_products:
+                if random.random() < 0.7:  # 70% chance to co-occur
+                    held_products.append("Cashback Card")
+        
+        # Fill remaining if needed
+        while len(held_products) < n_products:
+            candidates = [p for p in PRODUCT_NAMES if p not in held_products]
+            if not candidates:
+                break
+            held_products.append(random.choice(candidates))
+            
+        held_products = list(set(held_products))[:n_products]
         
         pool[rim] = {
             "BRANCH_ID": branch[0],
@@ -163,7 +193,7 @@ def _build_customer_pool(rim_start: int, count: int) -> dict:
             "ANNUAL_FEE": random.choice([0, 150, 300, 500, 1000]),
             "GENDER": random.choice(GENDERS),
             "DOB": dob,
-            "ORGANIZATION": random.choice(ORGANIZATIONS),
+            "ORGANIZATION": organization,
             "CUSTOMER_TYPE": random.choices(CUSTOMER_TYPES, weights=[80, 20])[0],
             "FIRST_REPLACED_CARD": random.choice(["", "", "", "VISA-OLD", "MC-OLD"]),
             "SECOND_REPLACED_CARD": random.choice(["", "", "", "", "VISA-OLD2"]),

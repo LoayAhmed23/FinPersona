@@ -180,6 +180,13 @@ def api_run_PREPROCESSING():
     if not prime_dir:
         return jsonify({"error": "Please provide a prime data directory."}), 400
 
+    import os
+    import config
+    if not os.path.isabs(prime_dir):
+        prime_dir = os.path.join(config.BASE_DIR, prime_dir)
+    if transaction_dir and not os.path.isabs(transaction_dir):
+        transaction_dir = os.path.join(config.BASE_DIR, transaction_dir)
+
     # Reset state
     pipeline_state.update({
         "status": "running_PREPROCESSING",

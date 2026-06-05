@@ -92,8 +92,8 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     logs.append("=" * 60)
 
     # ── Temp output dirs for the prestep ──
-    prime_output = "new_prime_cleaned"
-    txn_output = "new_transaction_cleaned"
+    prime_output = os.path.join(config.BASE_DIR, "new_prime_cleaned")
+    txn_output = os.path.join(config.BASE_DIR, "new_transaction_cleaned")
 
     # ── 1. Run prestep ──
     logs.append("")
