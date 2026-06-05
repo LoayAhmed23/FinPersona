@@ -64,12 +64,12 @@ TXN_REVERSAL_MAP = {"N": 1, "R": 0}
 # ---------------------------------------------------------------------------
 PRIME_FEATURE_COLS = [
     "CUSTOMER_ID", "CREDIT_LIMIT", "LEDGER_BALANCE", "AVAILABLE_LIMIT",
-    "OVERDUEAMOUNT", "STATUS", "STATUES_NAME", "ACTIVATED",
+    "OVERDUEAMOUNT", "STATUS", "STATUS_NAME", "ACTIVATED",
     "Card account status ", "CREATION_DATE",
 ]
 
 # Categorical columns to label-encode
-CATEGORICAL_COLS = ["STATUS", "STATUES_NAME", "ACTIVATED", "Card account status "]
+CATEGORICAL_COLS = ["STATUS", "STATUS_NAME", "ACTIVATED", "Card account status "]
 
 # Columns to drop before modeling (identifiers / dates)
 DROP_COLS = ["CUSTOMER_ID", "CREATION_DATE", "churn"]

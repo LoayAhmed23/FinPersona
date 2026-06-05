@@ -150,12 +150,15 @@ def _build_customer_pool(rim_start: int, count: int) -> dict:
         creation = datetime(2018, 1, 1) + timedelta(days=random.randint(0, 365 * 7))
         credit_limit = random.choice([5000, 10000, 15000, 20000, 30000,
                                       50000, 75000, 100000, 150000, 200000])
+        n_products = random.choices([1, 2, 3], weights=[70, 20, 10])[0]
+        held_products = random.sample(PRODUCT_NAMES, n_products)
+        
         pool[rim] = {
             "BRANCH_ID": branch[0],
             "BRANCH_NAME": branch[1],
             "CREATION_DATE": creation,
             "CREDIT_LIMIT": credit_limit,
-            "NAME": random.choice(PRODUCT_NAMES),
+            "NAMES": held_products,
             "JOINING_FEE": random.choice([0, 100, 200, 500]),
             "ANNUAL_FEE": random.choice([0, 150, 300, 500, 1000]),
             "GENDER": random.choice(GENDERS),
@@ -175,56 +178,57 @@ def _generate_prime_month(rim_list: list, customer_pool: dict,
     rows = []
     for rim in rim_list:
         c = customer_pool[rim]
-        status = _weighted_status(month_key)
-        activated = "A" if status not in ("CLSB", "CLSC", "CLSD", "CNCD") else "I"
-        credit_limit = c["CREDIT_LIMIT"]
-        # financial fields that change monthly
-        ledger = round(random.uniform(-credit_limit * 0.1, credit_limit * 0.95), 2)
-        available = round(credit_limit - abs(ledger) - random.uniform(0, 500), 2)
-        available = max(available, 0)
-        overdue = 0.0
-        if status in ("30DD", "60DA", "90DA", "SUSP", "WROF"):
-            overdue = round(random.uniform(500, credit_limit * 0.6), 2)
-        last_pay_amt = round(random.uniform(0, credit_limit * 0.3), 2)
-        last_pay_date = snapshot_date - timedelta(days=random.randint(1, 30))
-        last_stmt_date = snapshot_date - timedelta(days=random.randint(0, 15))
-        total_hold = round(random.uniform(0, 2000), 2)
-        no_cycles = max(1, (snapshot_date - c["CREATION_DATE"]).days // 30)
-        closure_date = None
-        if status in ("CLSB", "CLSC", "CLSD", "WROF"):
-            closure_date = snapshot_date - timedelta(days=random.randint(0, 60))
+        for prod_name in c["NAMES"]:
+            status = _weighted_status(month_key)
+            activated = "A" if status not in ("CLSB", "CLSC", "CLSD", "CNCD") else "I"
+            credit_limit = c["CREDIT_LIMIT"]
+            # financial fields that change monthly
+            ledger = round(random.uniform(-credit_limit * 0.1, credit_limit * 0.95), 2)
+            available = round(credit_limit - abs(ledger) - random.uniform(0, 500), 2)
+            available = max(available, 0)
+            overdue = 0.0
+            if status in ("30DD", "60DA", "90DA", "SUSP", "WROF"):
+                overdue = round(random.uniform(500, credit_limit * 0.6), 2)
+            last_pay_amt = round(random.uniform(0, credit_limit * 0.3), 2)
+            last_pay_date = snapshot_date - timedelta(days=random.randint(1, 30))
+            last_stmt_date = snapshot_date - timedelta(days=random.randint(0, 15))
+            total_hold = round(random.uniform(0, 2000), 2)
+            no_cycles = max(1, (snapshot_date - c["CREATION_DATE"]).days // 30)
+            closure_date = None
+            if status in ("CLSB", "CLSC", "CLSD", "WROF"):
+                closure_date = snapshot_date - timedelta(days=random.randint(0, 60))
 
-        rows.append({
-            "BRANCH_ID": c["BRANCH_ID"],
-            "BRANCH_NAME": c["BRANCH_NAME"],
-            "CREATION_DATE": c["CREATION_DATE"].strftime("%Y-%m-%d"),
-            "CREDIT_LIMIT": credit_limit,
-            "ACTIVATED": activated,
-            "STATUS": status.upper(),
-            "STATUES_NAME": STATUS_NAME_MAP.get(status.upper(), status),
-            "DELINQUENCY": DELINQUENCY_MAP.get(status.upper(), 0),
-            "LAST_STATEMENT_DATE": last_stmt_date.strftime("%Y-%m-%d"),
-            "NAME": c["NAME"],
-            "JOINING_FEE": c["JOINING_FEE"],
-            "ANNUAL_FEE": c["ANNUAL_FEE"],
-            "LEDGER_BALANCE": ledger,
-            "AVAILABLE_LIMIT": available,
-            "LAST_PAYMENT_AMOUNT": last_pay_amt,
-            "LAST_PAYMENT_DATE": last_pay_date.strftime("%Y-%m-%d"),
-            "TOTAL_HOLD": total_hold,
-            "GENDER": c["GENDER"],
-            "DOB": c["DOB"].strftime("%Y-%m-%d"),
-            "ORGANIZATION": c["ORGANIZATION"],
-            "CUSTOMER_TYPE": c["CUSTOMER_TYPE"],
-            "RIM_NO": rim,
-            "CLOSURE_DATE": closure_date.strftime("%Y-%m-%d") if closure_date else "",
-            "OVERDUEAMOUNT": overdue,
-            "NO_OF_CYCLES": no_cycles,
-            "FIRST_REPLACED_CARD": c["FIRST_REPLACED_CARD"],
-            "SECOND_REPLACED_CARD": c["SECOND_REPLACED_CARD"],
-            "THIRD_REPLACED_CARD": c["THIRD_REPLACED_CARD"],
-            "Card account status ": status.upper(),
-        })
+            rows.append({
+                "BRANCH_ID": c["BRANCH_ID"],
+                "BRANCH_NAME": c["BRANCH_NAME"],
+                "CREATION_DATE": c["CREATION_DATE"].strftime("%Y-%m-%d"),
+                "CREDIT_LIMIT": credit_limit,
+                "ACTIVATED": activated,
+                "STATUS": status.upper(),
+                "STATUS_NAME": STATUS_NAME_MAP.get(status.upper(), status),
+                "DELINQUENCY": DELINQUENCY_MAP.get(status.upper(), 0),
+                "LAST_STATEMENT_DATE": last_stmt_date.strftime("%Y-%m-%d"),
+                "NAME": prod_name,
+                "JOINING_FEE": c["JOINING_FEE"],
+                "ANNUAL_FEE": c["ANNUAL_FEE"],
+                "LEDGER_BALANCE": ledger,
+                "AVAILABLE_LIMIT": available,
+                "LAST_PAYMENT_AMOUNT": last_pay_amt,
+                "LAST_PAYMENT_DATE": last_pay_date.strftime("%Y-%m-%d"),
+                "TOTAL_HOLD": total_hold,
+                "GENDER": c["GENDER"],
+                "DOB": c["DOB"].strftime("%Y-%m-%d"),
+                "ORGANIZATION": c["ORGANIZATION"],
+                "CUSTOMER_TYPE": c["CUSTOMER_TYPE"],
+                "RIM_NO": rim,
+                "CLOSURE_DATE": closure_date.strftime("%Y-%m-%d") if closure_date else "",
+                "OVERDUEAMOUNT": overdue,
+                "NO_OF_CYCLES": no_cycles,
+                "FIRST_REPLACED_CARD": c["FIRST_REPLACED_CARD"],
+                "SECOND_REPLACED_CARD": c["SECOND_REPLACED_CARD"],
+                "THIRD_REPLACED_CARD": c["THIRD_REPLACED_CARD"],
+                "Card account status ": status.upper(),
+            })
     return pd.DataFrame(rows)
 
 
@@ -268,9 +272,10 @@ def _generate_transactions(rim_list: list, customer_pool: dict,
             merch_id = f"M{random.randint(100000, 999999)}"
             source = random.choices(SOURCES, weights=[50, 30, 10, 10])[0]
             reversal = random.choices(["Y", "N"], weights=[3, 97])[0]
+            prod_name = random.choice(c["NAMES"])
 
             rows.append({
-                "DESCRIPTION": c["NAME"],
+                "DESCRIPTION": prod_name,
                 "RIMNO": rim,
                 "POST DATE": post_date.strftime("%Y-%m-%d"),
                 "TRXN DATE": trxn_date.strftime("%Y-%m-%d"),

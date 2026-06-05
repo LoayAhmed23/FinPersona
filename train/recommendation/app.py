@@ -3,9 +3,9 @@ app.py
 ======
 Flask GUI for the HOLA Product Recommendation Pipeline.
 Provides a premium web interface to:
-  1. Run analytics pipeline on a data directory
-  2. Train XGBoost models with threshold tuning
-  3. Predict recommended products for a specific customer
+1. Run Preprocessing pipeline on a data directory
+2. Train XGBoost models with threshold tuning
+3. Predict recommended products for a specific customer
 """
 
 from flask import Flask, render_template, request, jsonify
@@ -22,7 +22,7 @@ app = Flask(__name__)
 # ── Persistence paths ──
 SAVE_DIR = "saved_models"
 os.makedirs(SAVE_DIR, exist_ok=True)
-ANALYTICS_CSV  = os.path.join(SAVE_DIR, "final_customer_profile.csv")
+PREPROCESSED_CSV  = os.path.join(SAVE_DIR, "final_customer_profile.csv")
 XGB_MODELS_PKL = os.path.join(SAVE_DIR, "xgb_models.pkl")
 XGB_META_JSON  = os.path.join(SAVE_DIR, "xgb_meta.json")
 CBF_SIM_PKL    = os.path.join(SAVE_DIR, "cbf_sim_matrix.pkl")
@@ -30,8 +30,8 @@ CBF_META_JSON  = os.path.join(SAVE_DIR, "cbf_meta.json")
 
 # ── Global state ──
 pipeline_state = {
-    "status": "idle",           # idle | running_analytics | analytics_done | training | trained | error
-    "analytics_logs": [],
+    "status": "idle",           # idle | running_PREPROCESSING | PREPROCESSING_done | training | trained | error
+    "PREPROCESSING_logs": [],
     "training_logs": [],
     "metrics": None,
     "error": None,
@@ -51,27 +51,33 @@ pipeline_state = {
     "cbf_status": "idle",       # idle | training_cbf | cbf_trained | error
     "cbf_metrics": None,
     "cbf_progress_pct": 0,
+    "batch_status": "idle",     # idle | running_batch | batch_done | error
+    "batch_logs": [],
+    "batch_progress_pct": 0,
+    "batch_output_path": None,
+    "batch_prediction_count": 0,
+    "batch_customer_count": 0,
 }
 
 
 def load_saved_state():
     """Load previously saved artifacts on server startup."""
-    # 1. Load analytics CSV
-    if os.path.exists(ANALYTICS_CSV):
+    # 1. Load Preprocessed CSV
+    if os.path.exists(PREPROCESSED_CSV):
         try:
-            df = pd.read_csv(ANALYTICS_CSV)
+            df = pd.read_csv(PREPROCESSED_CSV)
             product_cols = [c for c in df.columns if c.startswith('HAS_PROD_')]
             feature_cols = [c for c in df.columns if c not in product_cols and c != 'CUSTOMER_ID' and c != 'BRANCH_ID']
             pipeline_state["df"] = df
             pipeline_state["customer_count"] = len(df)
             pipeline_state["product_count"] = len(product_cols)
             pipeline_state["feature_count"] = len(feature_cols)
-            pipeline_state["status"] = "analytics_done"
-            pipeline_state["analytics_logs"] = ["[Loaded from cache] Analytics data restored from saved_models/"]
+            pipeline_state["status"] = "PREPROCESSING_done"
+            pipeline_state["PREPROCESSING_logs"] = ["[Loaded from cache] Preprocessed data restored from saved_models/"]
             pipeline_state["progress_pct"] = 100
-            print(f"[Startup] Loaded analytics CSV ({len(df)} customers)")
+            print(f"[Startup] Loaded Preprocessed CSV ({len(df)} customers)")
         except Exception as e:
-            print(f"[Startup] Failed to load analytics CSV: {e}")
+            print(f"[Startup] Failed to load Preprocessed CSV: {e}")
 
     # 2. Load XGBoost models
     if os.path.exists(XGB_MODELS_PKL) and os.path.exists(XGB_META_JSON):
@@ -124,7 +130,7 @@ def api_status():
     """Return current pipeline state (polled by the frontend)."""
     return jsonify({
         "status": pipeline_state["status"],
-        "analytics_logs": pipeline_state["analytics_logs"],
+        "PREPROCESSING_logs": pipeline_state["PREPROCESSING_logs"],
         "training_logs": pipeline_state["training_logs"],
         "metrics": pipeline_state["metrics"],
         "error": pipeline_state["error"],
@@ -136,13 +142,33 @@ def api_status():
         "cbf_status": pipeline_state["cbf_status"],
         "cbf_metrics": pipeline_state["cbf_metrics"],
         "cbf_progress_pct": pipeline_state["cbf_progress_pct"],
+        "batch_status": pipeline_state["batch_status"],
+        "batch_logs": pipeline_state["batch_logs"],
+        "batch_progress_pct": pipeline_state["batch_progress_pct"],
+        "batch_output_path": pipeline_state["batch_output_path"],
+        "batch_prediction_count": pipeline_state["batch_prediction_count"],
+        "batch_customer_count": pipeline_state["batch_customer_count"],
     })
 
 
-@app.route("/api/run_analytics", methods=["POST"])
-def api_run_analytics():
-    """Kick off the analytics pipeline in a background thread."""
-    if pipeline_state["status"] not in ("idle", "analytics_done", "trained", "error"):
+@app.route("/api/browse_directory")
+def api_browse_directory():
+    """Opens a native OS folder picker and returns the selected path."""
+    import tkinter as tk
+    from tkinter import filedialog
+    # Setup tkinter
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    folder_path = filedialog.askdirectory(title="Select Directory")
+    root.destroy()
+    return jsonify({"path": folder_path})
+
+
+@app.route("/api/run_PREPROCESSING", methods=["POST"])
+def api_run_PREPROCESSING():
+    """Kick off the Preprocessing pipeline in a background thread."""
+    if pipeline_state["status"] not in ("idle", "PREPROCESSING_done", "trained", "error"):
         return jsonify({"error": "Pipeline is already running."}), 400
 
     data = request.json
@@ -156,8 +182,8 @@ def api_run_analytics():
 
     # Reset state
     pipeline_state.update({
-        "status": "running_analytics",
-        "analytics_logs": [],
+        "status": "running_PREPROCESSING",
+        "PREPROCESSING_logs": [],
         "prestep_logs": [],
         "training_logs": [],
         "metrics": None,
@@ -175,39 +201,42 @@ def api_run_analytics():
 
     def _run():
         try:
-            from pipeline import run_analytics_pipeline
+            from pipeline import run_PREPROCESSING_pipeline
             pipeline_state["progress_pct"] = 20
-            df, logs, product_cols, feature_cols = run_analytics_pipeline(
+            df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(
                 prime_dir, transaction_dir,
                 raw_prime_dir=raw_prime_dir,
                 raw_transaction_dir=raw_transaction_dir,
+                logs=pipeline_state["PREPROCESSING_logs"]
             )
             pipeline_state["df"] = df
-            pipeline_state["analytics_logs"] = logs
+            pipeline_state["PREPROCESSING_logs"] = logs
             pipeline_state["customer_count"] = len(df)
             pipeline_state["product_count"] = len(product_cols)
             pipeline_state["feature_count"] = len(feature_cols)
-            pipeline_state["status"] = "analytics_done"
+            pipeline_state["status"] = "PREPROCESSING_done"
             pipeline_state["progress_pct"] = 100
 
             # Save CSV for next restart
-            df.to_csv(ANALYTICS_CSV, index=False)
-            logs.append(f"[Saved] Analytics CSV cached to {ANALYTICS_CSV}")
+            df.to_csv(PREPROCESSED_CSV, index=False)
+            logs.append(f"[Saved] Preprocessed CSV cached to {PREPROCESSED_CSV}")
         except Exception as e:
+            err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["PREPROCESSING_logs"].append(err_msg)
             pipeline_state["status"] = "error"
-            pipeline_state["error"] = f"{str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["error"] = str(e)
             pipeline_state["progress_pct"] = 0
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
-    return jsonify({"message": "Analytics pipeline started."})
+    return jsonify({"message": "Preprocessed pipeline started."})
 
 
 @app.route("/api/train", methods=["POST"])
 def api_train():
     """Kick off XGBoost training in a background thread."""
     if pipeline_state["df"] is None:
-        return jsonify({"error": "No data loaded. Run analytics first."}), 400
+        return jsonify({"error": "No data loaded. Run Preprocessed first."}), 400
     if pipeline_state["status"] == "training":
         return jsonify({"error": "Training is already in progress."}), 400
 
@@ -221,9 +250,12 @@ def api_train():
 
     def _train():
         try:
-            from pipeline import train_xgboost
+            from model import train_xgboost
             pipeline_state["progress_pct"] = 30
-            models, thresholds, feature_cols, valid_targets, metrics, logs = train_xgboost(pipeline_state["df"])
+            models, thresholds, feature_cols, valid_targets, metrics, logs = train_xgboost(
+                pipeline_state["df"],
+                logs=pipeline_state["training_logs"]
+            )
             pipeline_state["models"] = models
             pipeline_state["thresholds"] = thresholds
             pipeline_state["feature_cols"] = feature_cols
@@ -246,8 +278,10 @@ def api_train():
                 json.dump(meta, f)
             logs.append(f"[Saved] XGBoost models cached to {SAVE_DIR}/")
         except Exception as e:
+            err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["training_logs"].append(err_msg)
             pipeline_state["status"] = "error"
-            pipeline_state["error"] = f"{str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["error"] = str(e)
             pipeline_state["progress_pct"] = 0
 
     thread = threading.Thread(target=_train, daemon=True)
@@ -259,7 +293,7 @@ def api_train():
 def api_train_cbf():
     """Kick off CBF training in a background thread."""
     if pipeline_state["df"] is None:
-        return jsonify({"error": "No data loaded. Run analytics first."}), 400
+        return jsonify({"error": "No data loaded. Run Preprocessed first."}), 400
     if pipeline_state["cbf_status"] == "training_cbf":
         return jsonify({"error": "CBF training is already in progress."}), 400
 
@@ -272,9 +306,12 @@ def api_train_cbf():
 
     def _train_cbf():
         try:
-            from pipeline import train_cbf
+            from model import train_cbf
             pipeline_state["cbf_progress_pct"] = 40
-            sim_matrix, cbf_product_cols, cbf_thresholds, cbf_metrics, cbf_logs = train_cbf(pipeline_state["df"])
+            sim_matrix, cbf_product_cols, cbf_thresholds, cbf_metrics, cbf_logs = train_cbf(
+                pipeline_state["df"],
+                logs=pipeline_state["cbf_logs"]
+            )
             pipeline_state["cbf_sim_matrix"] = sim_matrix
             pipeline_state["cbf_product_cols"] = cbf_product_cols
             pipeline_state["cbf_thresholds"] = cbf_thresholds
@@ -295,8 +332,10 @@ def api_train_cbf():
                 json.dump(cbf_meta, f)
             cbf_logs.append(f"[Saved] CBF model cached to {SAVE_DIR}/")
         except Exception as e:
+            err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["cbf_logs"].append(err_msg)
             pipeline_state["cbf_status"] = "error"
-            pipeline_state["error"] = f"{str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["error"] = str(e)
             pipeline_state["cbf_progress_pct"] = 0
 
     thread = threading.Thread(target=_train_cbf, daemon=True)
@@ -321,7 +360,7 @@ def api_predict():
         return jsonify({"error": f"Invalid Customer ID: '{customer_id_raw}'. Must be an integer."}), 400
 
     try:
-        from pipeline import predict_for_customer
+        from model import predict_for_customer
         predicted, already_holding, found = predict_for_customer(
             customer_id,
             pipeline_state["df"],
@@ -361,7 +400,7 @@ def api_predict_cbf():
         return jsonify({"error": f"Invalid Customer ID: '{customer_id_raw}'."}), 400
 
     try:
-        from pipeline import predict_cbf_for_customer
+        from model import predict_cbf_for_customer
         recs, already_holding, found = predict_cbf_for_customer(
             customer_id,
             pipeline_state["df"],
@@ -395,6 +434,82 @@ def api_customers():
         ids = [cid for cid in ids if q in str(cid)]
 
     return jsonify({"customers": ids[:50]})
+
+
+@app.route("/api/predict_batch", methods=["POST"])
+def api_predict_batch():
+    """Run batch prediction on new customer data."""
+    if pipeline_state["models"] is None:
+        return jsonify({"error": "XGBoost models not trained yet. Complete training first."}), 400
+    if pipeline_state["batch_status"] == "running_batch":
+        return jsonify({"error": "Batch prediction is already running."}), 400
+
+    data = request.json
+    raw_prime_dir = data.get("raw_prime_dir", "").strip()
+    raw_transaction_dir = data.get("raw_transaction_dir", "").strip()
+
+    if not raw_prime_dir or not raw_transaction_dir:
+        return jsonify({"error": "Please provide both raw prime and transaction directories."}), 400
+
+    pipeline_state.update({
+        "batch_status": "running_batch",
+        "batch_logs": [],
+        "batch_progress_pct": 10,
+        "batch_output_path": None,
+        "batch_prediction_count": 0,
+        "batch_customer_count": 0,
+    })
+
+    def _run_batch():
+        try:
+            from pipeline import predict_new_data
+            pipeline_state["batch_progress_pct"] = 10
+
+            # Shared logs list — predict_new_data appends to it live
+            live_logs = pipeline_state["batch_logs"]
+            def _progress(pct):
+                pipeline_state["batch_progress_pct"] = pct
+
+            results_df, output_path, logs = predict_new_data(
+                raw_prime_dir=raw_prime_dir,
+                raw_transaction_dir=raw_transaction_dir,
+                models_dict=pipeline_state["models"],
+                optimal_thresholds=pipeline_state["thresholds"],
+                trained_feature_cols=pipeline_state["feature_cols"],
+                valid_targets=pipeline_state["valid_targets"],
+                sim_matrix=pipeline_state.get("cbf_sim_matrix"),
+                cbf_product_cols=pipeline_state.get("cbf_product_cols"),
+                cbf_thresholds=pipeline_state.get("cbf_thresholds"),
+                logs=pipeline_state["batch_logs"],
+                progress_callback=_progress,
+            )
+
+            pipeline_state["batch_output_path"] = output_path
+            pipeline_state["batch_prediction_count"] = len(results_df)
+            pipeline_state["batch_customer_count"] = results_df['CUSTOMER_ID'].nunique() if len(results_df) > 0 else 0
+            pipeline_state["batch_status"] = "batch_done"
+            pipeline_state["batch_progress_pct"] = 100
+        except Exception as e:
+            err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
+            pipeline_state["batch_logs"].append(err_msg)
+            pipeline_state["batch_status"] = "error"
+            pipeline_state["error"] = str(e)
+            pipeline_state["batch_progress_pct"] = 0
+
+    thread = threading.Thread(target=_run_batch, daemon=True)
+    thread.start()
+    return jsonify({"message": "Batch prediction started."})
+
+
+@app.route("/api/download_batch")
+def api_download_batch():
+    """Download the batch predictions CSV."""
+    output_path = pipeline_state.get("batch_output_path")
+    if not output_path or not os.path.exists(output_path):
+        return jsonify({"error": "No batch predictions available."}), 404
+
+    from flask import send_file
+    return send_file(output_path, as_attachment=True, download_name="batch_predictions.csv")
 
 
 if __name__ == "__main__":

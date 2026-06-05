@@ -45,11 +45,11 @@ in the real CSV files:
 
 4) Fixed prime feature column names
    OLD:  "AVILABLE_LIMIT"  ->  NEW: "AVAILABLE_LIMIT"
-   OLD:  "STATUS_NAME"     ->  NEW: "STATUES_NAME"
+   OLD:  "STATUS_NAME"     ->  NEW: "STATUS_NAME"
    (These match the actual typos present in the raw data.)
 
 5) Fixed CATEGORICAL_COLS to match
-   OLD:  "STATUS_NAME"     ->  NEW: "STATUES_NAME"
+   OLD:  "STATUS_NAME"     ->  NEW: "STATUS_NAME"
 
 ============================================================
   FILE: data_loader.py
