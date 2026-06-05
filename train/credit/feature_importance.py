@@ -1,10 +1,12 @@
+"""" 
+Feature importance plots for the generated Credit Risk model.
+"""
 import os
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-import xgboost as xgb
 import joblib
 
 sys.path.append(os.path.abspath('.'))
@@ -14,9 +16,6 @@ import config
 def plot_feature_importance():
     sns.set_theme(style="whitegrid")
     plt.rcParams["figure.figsize"] = (12, 10)
-
-    # Note: We no longer run the pipeline from here to avoid circular imports.
-    # The pipeline will simply call this function after it finishes and saves the model.
 
     try:
         pipeline_data = joblib.load(config.MODEL_PATH)  

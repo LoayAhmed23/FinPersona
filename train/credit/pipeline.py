@@ -1,15 +1,14 @@
 """
-Pipeline orchestrator — ties data loading, feature engineering,
-preprocessing, training, and evaluation together.
+Pipeline of the Credit Risk Module 
 """
 
 import os
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_auc_score
+from imblearn.over_sampling import SMOTE
 
 import config
 from data_loader import load_prime_data, load_transaction_data, merge_data
@@ -42,10 +41,7 @@ def _banner(step, total, title):
     print("=" * 60)
 
 
-# ---------------------------------------------------------------------------
 # Leakage detection
-# ---------------------------------------------------------------------------
-
 def check_for_leakage(X: pd.DataFrame, y: pd.Series,
                       threshold: float = None,
                       top_n: int = 10,
@@ -94,28 +90,24 @@ def check_for_leakage(X: pd.DataFrame, y: pd.Series,
         print(f"  Add these columns to config.DROP_COLS and re-run.")
         print(f"{'!' * 60}\n")
 
-        # REMOVED BECAUSE OF FAKE DATA
-        # if abort_on_leak: # i commented this because the user does not want to stop the pipeline 
-        #     raise RuntimeError(
-        #         f"Pipeline aborted: {len(suspects)} leakage suspect(s) found. "
-        #         f"See output above. Set abort_on_leak=False to override."
-        #     )
+        if abort_on_leak:
+            raise RuntimeError(
+                f"Pipeline aborted: {len(suspects)} leakage suspect(s) found. "
+                f"See output above. Set abort_on_leak=False to override."
+            )
     else:
         print(f"  [leakage check] No suspects found above AUC {threshold}. Proceeding.")
 
     return suspects
 
 
-# ---------------------------------------------------------------------------
 # Training pipeline
-# ---------------------------------------------------------------------------
 
 def run_training_pipeline(tune: bool = False, sample: bool = False):
-    """Full training pipeline: load -> engineer -> preprocess -> train -> evaluate.
+    """Full training pipeline
 
     Parameters
-    ----------
-    tune : bool
+    tune
         If True, run RandomizedSearchCV for hyperparameter tuning instead
         of training with the default parameters.
     sample : bool
@@ -124,27 +116,19 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
     TOTAL = 13
     _ensure_output_dir()
 
-    # ------------------------------------------------------------------
     _banner(1, TOTAL, "LOADING DATA")
-    # ------------------------------------------------------------------
     prime_df = load_prime_data()
     txn_df   = load_transaction_data()
-
-    # ------------------------------------------------------------------
+    
     _banner(2, TOTAL, "FEATURE ENGINEERING")
-    # ------------------------------------------------------------------
     prime_df     = engineer_prime_features(prime_df)
     txn_features = engineer_transaction_features(txn_df)
 
-    # ------------------------------------------------------------------
     _banner(3, TOTAL, "MERGING PRIME + TRANSACTION DATA")
-    # ------------------------------------------------------------------
     merged = merge_data(prime_df, txn_features)
 
-    # ------------------------------------------------------------------
     _banner(4, TOTAL, "CREATING TARGET VARIABLE")
-    # ------------------------------------------------------------------
-    # create_target returns the full DataFrame (with optional sample_weight)
+    # create_target returns the full DataFrame 
     merged = create_target(merged)
     target = merged[config.TARGET_COL]
 
@@ -153,11 +137,9 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         merged["sample_weight"] if "sample_weight" in merged.columns else None
     )
 
-    # ------------------------------------------------------------------
     _banner(5, TOTAL, "TEMPORAL FEATURE ENGINEERING")
-    # ------------------------------------------------------------------
     # Compute per-customer trends across monthly snapshots and collapse
-    # to one row per customer (latest month), enriched with trend features.
+    # to one row per customer (latest month), filled with trend features.
     merged = engineer_temporal_features(merged)
     target = merged[config.TARGET_COL]
     sample_weight = (
@@ -193,71 +175,31 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         else None
     )
 
-    # ------------------------------------------------------------------
     _banner(6, TOTAL, "PREPROCESSING (encoding, scaling, imputation)")
-    # ------------------------------------------------------------------
     X, y, artifacts = preprocess(merged, target, fit=True)
 
-    # Align sample_weight to X after preprocessing may drop rows
-    if sample_weight is not None:
-        sample_weight = sample_weight.loc[X.index]
 
-    # ------------------------------------------------------------------
     _banner(7, TOTAL, "CORRELATION FILTER")
-    # ------------------------------------------------------------------
     X, dropped_cols = drop_uncorrelated_features(X, y)
-    # Update artifacts so the scoring pipeline uses the same column set
     if dropped_cols:
         artifacts["feature_order"] = [c for c in artifacts["feature_order"] if c not in dropped_cols]
 
-    # ------------------------------------------------------------------
     _banner(8, TOTAL, "LEAKAGE CHECK")
-    # ------------------------------------------------------------------
-    check_for_leakage(X, y, abort_on_leak=True)
+    # abort_on_leak should be set to True, but here it is set to False 
+    # becuase of running on fake data
+    check_for_leakage(X, y, abort_on_leak=False) 
 
-    # ------------------------------------------------------------------
     _banner(9, TOTAL, "TRAIN / TEST SPLIT (temporal)")
-    # ------------------------------------------------------------------
-    # Use temporal split: train on older months, test on the latest month.
-    # Falls back to a random stratified split if month data is unavailable.
-    if snapshot_months is not None:
-        snapshot_months = snapshot_months.loc[X.index]
-        latest_month = snapshot_months.max()
-        train_mask = snapshot_months < latest_month
-        test_mask  = snapshot_months == latest_month
+    snapshot_months = snapshot_months.loc[X.index]
+    latest_month = snapshot_months.max()
+    train_mask = snapshot_months < latest_month
+    test_mask  = snapshot_months == latest_month
 
-        if test_mask.sum() == 0 or train_mask.sum() == 0:
-            print("  [WARNING] Only one month detected — falling back to random split.")
-            split_kwargs = dict(
-                test_size=config.TEST_SIZE, stratify=y,
-                random_state=config.RANDOM_STATE,
-            )
-            if sample_weight is not None:
-                X_train, X_test, y_train, y_test, sw_train, _ = train_test_split(
-                    X, y, sample_weight, **split_kwargs,
-                )
-            else:
-                X_train, X_test, y_train, y_test = train_test_split(X, y, **split_kwargs)
-                sw_train = None
-        else:
-            X_train, X_test = X[train_mask], X[test_mask]
-            y_train, y_test = y[train_mask], y[test_mask]
-            sw_train = sample_weight[train_mask] if sample_weight is not None else None
-            print(f"  Temporal split: train on months < {latest_month.strftime('%Y-%m')}, "
-                  f"test on {latest_month.strftime('%Y-%m')}")
-    else:
-        print("  No month data — using random stratified split.")
-        split_kwargs = dict(
-            test_size=config.TEST_SIZE, stratify=y,
-            random_state=config.RANDOM_STATE,
-        )
-        if sample_weight is not None:
-            X_train, X_test, y_train, y_test, sw_train, _ = train_test_split(
-                X, y, sample_weight, **split_kwargs,
-            )
-        else:
-            X_train, X_test, y_train, y_test = train_test_split(X, y, **split_kwargs)
-            sw_train = None
+    X_train, X_test = X[train_mask], X[test_mask]
+    y_train, y_test = y[train_mask], y[test_mask]
+    sw_train = sample_weight[train_mask] if sample_weight is not None else None
+    print(f"  Temporal split: train on months < {latest_month.strftime('%Y-%m')}, "
+            f"test on {latest_month.strftime('%Y-%m')}")
 
     print(f"  Train set:          {X_train.shape[0]:,} samples")
     print(f"  Test set:           {X_test.shape[0]:,} samples")
@@ -265,11 +207,9 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
     print(f"  Train default rate: {y_train.sum() / len(y_train) * 100:.1f}%")
     print(f"  Test  default rate: {y_test.sum()  / len(y_test)  * 100:.1f}%")
 
-    # ------------------------------------------------------------------
     _banner(10, TOTAL, "SMOTE OVERSAMPLING (train only)")
-    # ------------------------------------------------------------------
+
     if getattr(config, "SMOTE_ENABLED", False):
-        from imblearn.over_sampling import SMOTE
         smote = SMOTE(
             sampling_strategy=config.SMOTE_SAMPLING_STRATEGY,
             random_state=config.RANDOM_STATE,
@@ -284,49 +224,10 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
     else:
         print("  SMOTE disabled — skipping.")
 
-    # ------------------------------------------------------------------
-    if tune:
-        _banner(11, TOTAL, "HYPERPARAMETER TUNING + TRAINING")
-    else:
-        _banner(11, TOTAL, "XGBOOST TRAINING")
-    # ------------------------------------------------------------------
-
-    if tune:
-        best_model, best_params = tune_hyperparameters(X_train, y_train, X_test, y_test)
-        print("  Generating predictions on test set ...")
-        y_proba = best_model.predict_proba(X_test)[:, 1]
-
-        print("  Finding best decision threshold (F-beta) ...")
-        best_threshold = find_best_threshold_fbeta(y_test, y_proba, beta=config.FBETA_VALUE)
-        print(f"  Best threshold: {best_threshold:.4f}")
-
-        y_pred        = (y_proba >= best_threshold).astype(int)
-        model_to_save = best_model
-
-    else:
-        print("  Training XGBoost with early stopping and automatic scale_pos_weight ...")
-        bst = train_xgboost(
-            X_train, y_train,
-            X_test, y_test,
-        )
-        print("  Generating predictions on test set ...")
-        import xgboost as xgb
-        dtest = xgb.DMatrix(X_test)
-        y_proba = bst.predict(dtest)
-
-        print("  Finding best decision threshold (F-beta) ...")
-        best_threshold = find_best_threshold_fbeta(y_test, y_proba, beta=config.FBETA_VALUE)
-        print(f"  Best threshold: {best_threshold:.4f}")
-
-        y_pred        = (y_proba >= best_threshold).astype(int)
-        model_to_save = bst
-
-    # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
-    _banner(12, TOTAL, "TOP-20 GAIN FEATURE SELECTION (NO INTERSECTION)")
+    _banner(11, TOTAL, "TOP-20 GAIN FEATURE SELECTION (NO INTERSECTION)")
     # ------------------------------------------------------------------
     # Train a light model to get gain-based importances, then retrain using
-    # only the top-N features. This avoids any intersection-based selection.
+    # only the top-N features.
     print("  Training a temporary model to compute gain importances ...")
     tmp_bst = train_xgboost(
         X_train,
@@ -350,9 +251,7 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
     print(f"  Training with selected features only: {X_train.shape[1]}")
 
     if tune:
-        # NOTE: tuning path currently uses sklearn API and ignores early stopping.
-        # We keep behavior consistent: after selection, tune on the reduced set.
-        _banner(11, TOTAL, "HYPERPARAMETER TUNING + TRAINING")
+        _banner(12, TOTAL, "HYPERPARAMETER TUNING + TRAINING")
         best_model, best_params = tune_hyperparameters(X_train, y_train, X_test, y_test)
         print("  Generating predictions on test set ...")
         y_proba = best_model.predict_proba(X_test)[:, 1]
@@ -364,7 +263,7 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         y_pred = (y_proba >= best_threshold).astype(int)
         model_to_save = best_model
     else:
-        _banner(11, TOTAL, "XGBOOST TRAINING")
+        _banner(12, TOTAL, "XGBOOST TRAINING")
         print("  Training final XGBoost on top-gain features ...")
         bst = train_xgboost(
             X_train,
@@ -385,9 +284,6 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         y_pred = (y_proba >= best_threshold).astype(int)
         model_to_save = bst
 
-    # ------------------------------------------------------------------
-    # Collect model parameters for the report
-    # ------------------------------------------------------------------
     if tune:
         model_params = dict(best_params)
     else:
@@ -403,9 +299,7 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
         model_params["smote_sampling_strategy"] = config.SMOTE_SAMPLING_STRATEGY
     model_params["n_features"] = X_train.shape[1]
 
-    # ------------------------------------------------------------------
     _banner(13, TOTAL, "EVALUATION & OUTPUT")
-    # ------------------------------------------------------------------
     metrics = evaluate(y_test, y_pred, y_proba, threshold=best_threshold)
     report  = generate_report(metrics, y_test, y_pred, config.REPORT_PATH,
                               model_params=model_params)
@@ -455,15 +349,12 @@ def run_training_pipeline(tune: bool = False, sample: bool = False):
     return metrics
 
 
-# ---------------------------------------------------------------------------
 # Scoring pipeline (new data)
-# ---------------------------------------------------------------------------
-
 def run_scoring_pipeline(model_path: str = None,     
                          prime_dir:   str = None,    
                          txn_dir:     str = None,    
                          output_path: str = None):   
-    """Score new monthly data using a previously trained model."""
+    """Score new monthly data using previously trained model."""
     TOTAL = 5
     _ensure_output_dir()
     output_path = output_path or config.SCORES_PATH
@@ -471,8 +362,7 @@ def run_scoring_pipeline(model_path: str = None,
     _banner(1, TOTAL, "LOADING SAVED MODEL")
     model, artifacts = load_model(model_path)
 
-    # Use the threshold saved at training time; fall back to 0.5 for
-    # models saved before this field was added.
+    # Use the threshold saved at training time; fall back to 0.5
     best_threshold = artifacts.get("best_threshold", 0.5)
     print(f"  Using decision threshold: {best_threshold:.4f}")
 

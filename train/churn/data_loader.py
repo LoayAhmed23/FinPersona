@@ -1,8 +1,7 @@
 """
-Data loading utilities for the Churn Prediction System.
+Data loading for the Churn Module.
 
-Loads monthly prime CSVs, transaction CSVs, creates churn labels,
-and provides a merge helper.
+Loads monthly prime files, transaction files, creates the churn label
 """
 
 import glob
@@ -13,14 +12,11 @@ import pandas as pd
 import config
 
 
-# ---------------------------------------------------------------------------
 # Churn labeling
-# ---------------------------------------------------------------------------
-
 def create_churn_labels() -> pd.DataFrame:
-    """Label customers as churned based on presence across two months.
+    """Label customers as churned based on presence across the start and end months.
 
-    Logic: If a CUSTOMER_ID exists in the reference month but NOT in the
+    If a CUSTOMER_ID exists in the reference month but NOT in the
     target month (or has a WROF status) → churn = 1, else churn = 0.
 
     Returns
@@ -43,14 +39,14 @@ def create_churn_labels() -> pd.DataFrame:
     ref_df = _load_label_file(ref_path, ref_key, [cid, status])
     tgt_df = _load_label_file(tgt_path, tgt_key, [cid, status])
 
-    # Build set of customer IDs present in target month
+    # Set of customer IDs present in target month
     tgt_ids = set(tgt_df[cid].unique())
     print(f"\n{tgt_key} unique customers (active set): {len(tgt_ids):,}")
 
-    # Deduplicate reference month — keep last occurrence per customer
+    # Deduplicate reference month - keep last occurrence per customer
     ref_deduped = ref_df.drop_duplicates(subset=[cid], keep="last").copy()
 
-    # Label churn
+    # Generate churn label
     ref_deduped[config.TARGET_COL] = ref_deduped.apply(
         lambda row: 1 if (
             row[cid] not in tgt_ids or
@@ -89,7 +85,7 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
         elif c == canonical_id and raw_id in header_cols:
             resolved.append(raw_id)
             rename_map[raw_id] = canonical_id
-        # else skip
+        
 
     if not resolved:
         raise ValueError(f"[{label}] None of {usecols} found in {filepath}")
@@ -107,14 +103,12 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
     return df
 
 
-# ---------------------------------------------------------------------------
-# Transaction data
-# ---------------------------------------------------------------------------
 
+# Transaction data
 def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     """Load and concatenate all transaction CSV files."""
     data_dir = data_dir or config.TRANSACTION_DATA_DIR
-    files = sorted(glob.glob(os.path.join(data_dir, config.TXN_FILE_PATTERN)))
+    files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
     if not files:
         raise FileNotFoundError(f"No CSV files found in {data_dir}")
 
@@ -148,14 +142,12 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     return combined
 
 
-# ---------------------------------------------------------------------------
-# Prime data
-# ---------------------------------------------------------------------------
 
+# Prime data
 def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     """Load and concatenate all prime (customer snapshot) CSV files."""
     data_dir = data_dir or config.PRIME_DATA_DIR
-    files = sorted(glob.glob(os.path.join(data_dir, config.PRIME_FILE_PATTERN)))
+    files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
     if not files:
         raise FileNotFoundError(f"No CSV files found in {data_dir}")
 

@@ -1,11 +1,9 @@
 """
-Pipeline orchestrator — ties data loading, feature engineering,
-preprocessing, training, and evaluation together.
+Complete Pipeline of the Churn Module 
 """
 
 import os
 
-import numpy as np
 from sklearn.model_selection import train_test_split
 
 import config
@@ -31,12 +29,9 @@ def _banner(step, total, title):
     print("=" * 60)
 
 
-# ---------------------------------------------------------------------------
 # Training pipeline
-# ---------------------------------------------------------------------------
-
 def run_training_pipeline(tune: bool = False):
-    """Full training pipeline: label → load → engineer → preprocess → train → evaluate.
+    """Full training pipeline of Churn Prediction Module.
 
     Parameters
     ----------
@@ -47,40 +42,34 @@ def run_training_pipeline(tune: bool = False):
     TOTAL = 8 if tune else 7
     _ensure_output_dir()
 
-    # ------------------------------------------------------------------
+    # Churn Labeling
     _banner(1, TOTAL, "CHURN LABELING")
-    # ------------------------------------------------------------------
     churn_labels = create_churn_labels()
 
-    # ------------------------------------------------------------------
+    # Load Data
     _banner(2, TOTAL, "LOADING DATA")
-    # ------------------------------------------------------------------
     txn_df = load_transaction_data()
     prime_df = load_prime_data()
 
-    # ------------------------------------------------------------------
+    # Feature Engineering
     _banner(3, TOTAL, "FEATURE ENGINEERING")
-    # ------------------------------------------------------------------
     txn_features = engineer_transaction_features(txn_df)
     prime_features = engineer_prime_features(prime_df)
 
-    # ------------------------------------------------------------------
+    # Merge Datasets
     _banner(4, TOTAL, "MERGING DATASETS")
-    # ------------------------------------------------------------------
     final_df = merge_all(txn_features, prime_features, churn_labels)
 
-    # ------------------------------------------------------------------
+    # Preprocessing
     _banner(5, TOTAL, "PREPROCESSING")
-    # ------------------------------------------------------------------
     X, y, artifacts = preprocess(final_df, fit=True)
 
     print(f"  Features:     {X.shape[1]}")
     print(f"  Samples:      {X.shape[0]:,}")
     print(f"  Churn rate:   {y.mean() * 100:.2f}%")
 
-    # ------------------------------------------------------------------
+    # Train / Test Split
     _banner(6, TOTAL, "TRAIN / TEST SPLIT")
-    # ------------------------------------------------------------------
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
         test_size=config.TEST_SIZE,
@@ -90,10 +79,9 @@ def run_training_pipeline(tune: bool = False):
     print(f"  Train: {X_train.shape[0]:,} samples")
     print(f"  Test:  {X_test.shape[0]:,} samples")
 
-    # ------------------------------------------------------------------
+    # Train Classifiers
     step = 7
     _banner(step, TOTAL, "MODEL TRAINING (all classifiers)")
-    # ------------------------------------------------------------------
     results = train_classifiers(X_train, y_train, X_test, y_test)
 
     # Evaluate all models
@@ -106,12 +94,10 @@ def run_training_pipeline(tune: bool = False):
     best_result = results[best_name]
     best_model = best_result["model"]
 
-    # ------------------------------------------------------------------
-    # Optional: hyperparameter tuning
-    # ------------------------------------------------------------------
+    # Hyperparameter Tuning
     if tune:
         step += 1
-        _banner(step, TOTAL, "HYPERPARAMETER TUNING (GridSearchCV)")
+        _banner(step, TOTAL + 1, "HYPERPARAMETER TUNING (GridSearchCV)")
         tuned = tune_models(X_train, y_train)
 
         # Evaluate tuned models on test set
@@ -131,11 +117,9 @@ def run_training_pipeline(tune: bool = False):
         best_result = results[best_name]
         best_model = best_result["model"]
 
-    # ------------------------------------------------------------------
-    _banner(step + 1 if tune else step + 1, TOTAL + 1 if tune else TOTAL + 1,
-            "EVALUATION & OUTPUT")
-    # (adjust numbering — always the final step)
-    # ------------------------------------------------------------------
+    # Evaluation & Output
+    step += 1
+    _banner(step, TOTAL + 1, "EVALUATION & OUTPUT")
     report = generate_report(
         metrics_df, y_test, best_name, best_result["preds"],
         output_path=config.REPORT_PATH,

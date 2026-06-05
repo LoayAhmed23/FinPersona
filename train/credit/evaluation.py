@@ -1,5 +1,5 @@
 """
-Evaluation metrics and report generation.
+Evaluation metrics and report generation for the Credit Risk Module.
 """
 
 import numpy as np
@@ -7,8 +7,6 @@ from sklearn.metrics import (
     roc_auc_score, roc_curve, f1_score, recall_score,
     precision_score, accuracy_score, confusion_matrix, classification_report, precision_recall_curve
 )
-
-import config
 
 
 def find_best_threshold_fbeta(y_true, y_proba, beta=2.0) -> float:

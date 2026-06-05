@@ -1,8 +1,7 @@
 """
-Model training, hyperparameter tuning, and persistence.
+Model training, hyperparameter tuning, and model saving.
 """
 
-import numpy as np
 import xgboost as xgb
 import joblib
 from sklearn.model_selection import RandomizedSearchCV
@@ -12,43 +11,17 @@ import config
 
 
 def get_top_features_by_gain(booster: "xgb.Booster", feature_order: list[str], top_n: int = 20) -> list[str]:
-    """Return the top-N features ranked by XGBoost 'gain'.
-
-    Notes
-    -----
-    - Only features present in `feature_order` are considered.
-    - Features never used in a split have gain=0 and will be ranked last.
-    """
+    """Return the top-N features ranked by XGBoost 'gain'."""
+    
     if top_n <= 0:
         raise ValueError("top_n must be a positive integer")
 
     gain_dict = booster.get_score(importance_type="gain")
 
-    # If XGBoost was trained without feature_names, keys will look like f0,f1,...
-    # Map them back to the provided feature_order.
-    if gain_dict and all(isinstance(k, str) and k.startswith("f") and k[1:].isdigit() for k in gain_dict.keys()):
-        mapped = {}
-        for k, v in gain_dict.items():
-            idx = int(k[1:])
-            if 0 <= idx < len(feature_order):
-                mapped[feature_order[idx]] = float(v)
-        gain_dict = mapped
 
     scored = [(f, float(gain_dict.get(f, 0.0))) for f in feature_order]
     scored.sort(key=lambda t: t[1], reverse=True)
 
-    # Fallback: if everything is zero (can happen on degenerate training), use split counts.
-    if scored and scored[0][1] == 0.0:
-        weight_dict = booster.get_score(importance_type="weight")
-        if weight_dict and all(isinstance(k, str) and k.startswith("f") and k[1:].isdigit() for k in weight_dict.keys()):
-            mapped = {}
-            for k, v in weight_dict.items():
-                idx = int(k[1:])
-                if 0 <= idx < len(feature_order):
-                    mapped[feature_order[idx]] = float(v)
-            weight_dict = mapped
-        scored = [(f, float(weight_dict.get(f, 0.0))) for f in feature_order]
-        scored.sort(key=lambda t: t[1], reverse=True)
 
     return [f for f, _ in scored[: min(top_n, len(scored))]]
 
@@ -71,16 +44,13 @@ def subset_to_features(X_train, X_test, X_all, artifacts: dict, selected_feature
     return X_train2, X_test2, X_all2, artifacts2
 
 
-# ---------------------------------------------------------------------------
 # Training
-# ---------------------------------------------------------------------------
-
 def train_xgboost(X_train, y_train, X_val, y_val, params=None, sample_weight_train=None):
     """Train an XGBoost model with early stopping.
 
     Returns the trained Booster.
     """
-    params = params or dict(config.XGB_PARAMS)  # copy to avoid mutating config
+    params = params or dict(config.XGB_PARAMS) 
 
     # Automatic scale_pos_weight: skip when SMOTE already rebalanced the data
     if "scale_pos_weight" not in params:
@@ -142,8 +112,6 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
     """
 
     # When SMOTE is active, the training set is already rebalanced.
-    # Applying scale_pos_weight on top of SMOTE double-boosts the minority
-    # class, causing the model to over-predict positives (low precision).
     if getattr(config, "SMOTE_ENABLED", False):
         scale_pos_weight = 1.0
         print("  [tune] SMOTE is active — setting scale_pos_weight=1.0 (no double-boost)")
@@ -173,7 +141,7 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
         cv=config.TUNE_CV_FOLDS,
         verbose=2,
         random_state=config.RANDOM_STATE,
-        n_jobs=config.N_GPUS, # Parallelize cross-validation folds across GPUs, not CPUs to avoid OOM
+        n_jobs=config.N_GPUS, # Use all GPUS
     )
 
     print(
@@ -181,7 +149,6 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
         f"({config.TUNE_N_ITER} iterations x {config.TUNE_CV_FOLDS}-fold CV) ..."
     )
 
-    # early_stopping_rounds requires an eval_set for validation
     fit_params = {}
     if X_val is not None and y_val is not None:
         fit_params["eval_set"] = [(X_val, y_val)]
@@ -198,10 +165,7 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
     return search.best_estimator_, search.best_params_
 
 
-# ---------------------------------------------------------------------------
 # Persistence
-# ---------------------------------------------------------------------------
-
 def save_model(model, artifacts: dict, path: str = None):
     """Persist model and preprocessing artifacts."""
     path = path or config.MODEL_PATH

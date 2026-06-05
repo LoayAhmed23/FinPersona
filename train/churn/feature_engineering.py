@@ -1,7 +1,8 @@
 """
 Feature engineering for the Churn Prediction System.
 
-Creates transaction-level aggregations and prime-level snapshot features.
+Creates transaction-level aggregations and prime-level snapshot features and, 
+merges the data to create a single dataset.
 """
 
 import pandas as pd
@@ -9,10 +10,7 @@ import pandas as pd
 import config
 
 
-# ---------------------------------------------------------------------------
 # Transaction features
-# ---------------------------------------------------------------------------
-
 def engineer_transaction_features(txn_df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate transaction data into per-customer features.
 
@@ -64,10 +62,7 @@ def engineer_transaction_features(txn_df: pd.DataFrame) -> pd.DataFrame:
     return agg
 
 
-# ---------------------------------------------------------------------------
 # Prime features
-# ---------------------------------------------------------------------------
-
 def engineer_prime_features(prime_df: pd.DataFrame) -> pd.DataFrame:
     """Extract and engineer features from the prime (customer snapshot) data.
 
@@ -98,19 +93,13 @@ def engineer_prime_features(prime_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ---------------------------------------------------------------------------
 # Merge all data sources
-# ---------------------------------------------------------------------------
-
 def merge_all(
     txn_features: pd.DataFrame,
     prime_features: pd.DataFrame,
     churn_labels: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Merge transaction features, prime features, and churn labels.
-
-    Only customers present in both txn and prime data are kept.
-    """
+    """Merge transaction features, prime features, and churn labels."""
     cid = config.CUSTOMER_ID
 
     # Filter prime to customers with transactions

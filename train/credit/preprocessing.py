@@ -15,19 +15,15 @@ def preprocess(X: pd.DataFrame, y: pd.Series = None,
     """Preprocess features for modelling.
 
     Parameters
-    ----------
-    X : pd.DataFrame
-        Raw feature matrix (after feature engineering, before modelling).
-    y : pd.Series, optional
-        Target vector.  Only needed when ``fit=True`` to align indices.
-    fit : bool
+    X : Raw feature matrix (after feature engineering, before modelling).
+    y : Target vector.  Only needed when ``fit=True`` to align indices.
+    fit
         If True, fit encoders / scaler and return them in *artifacts*.
         If False, reuse the encoders / scaler from *artifacts*.
-    artifacts : dict, optional
+    artifacts :
         Previously fitted {encoders, scaler, cat_cols, num_cols, feature_order}.
 
     Returns
-    -------
     X_out : pd.DataFrame
     y_out : pd.Series  (or None when y is None)
     artifacts : dict
@@ -39,12 +35,10 @@ def preprocess(X: pd.DataFrame, y: pd.Series = None,
     X = X.drop(columns=cols_to_drop, errors="ignore")
 
     if fit:
-        # Discover column types
         cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
         num_cols = [c for c in X.columns if c not in cat_cols]
 
         # --- Missing-value handling ---
-        # Note: LightGBM handles missing numerical values natively.
         for c in num_cols:
             X[c] = pd.to_numeric(X[c], errors="coerce")
 
@@ -105,8 +99,6 @@ def preprocess(X: pd.DataFrame, y: pd.Series = None,
         X = X.loc[common]
         y = y.loc[common]
 
-    # --- Safety net: catch any remaining NaN / Inf values in categorical columns only ---
-    # LightGBM handles NaNs in numericals, but strings/inf should go.
     X = X.replace([np.inf, -np.inf], np.nan)
 
     print(f"[preprocess] Output shape: {X.shape}  |  fit={fit}")
@@ -115,31 +107,21 @@ def preprocess(X: pd.DataFrame, y: pd.Series = None,
 
 # ---------------------------------------------------------------------------
 # Correlation-based feature filter
-# ---------------------------------------------------------------------------
-
 def drop_uncorrelated_features(
     X: pd.DataFrame,
     y: pd.Series,
     threshold: float = None,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Drop features whose absolute Pearson correlation with *y* is below *threshold*.
+    """Drop features whose absolute Pearson correlation with is below the threshold.
 
     Parameters
-    ----------
-    X : pd.DataFrame
-        Feature matrix (post-preprocessing, all numeric).
-    y : pd.Series
-        Binary target vector, aligned to X.
-    threshold : float, optional
-        Minimum absolute correlation to keep a feature.
-        Defaults to ``config.CORR_THRESHOLD``.
+    X : Feature matrix (post-preprocessing, all numeric).
+    y : Binary target vector, aligned to X.
+    threshold :  Minimum absolute correlation to keep a feature.
 
     Returns
-    -------
-    X_filtered : pd.DataFrame
-        Feature matrix with low-correlation columns removed.
-    dropped : list[str]
-        Names of the dropped columns.
+    X_filtered: Feature matrix with low-correlation columns removed.
+    dropped: Names of the dropped columns.
     """
     threshold = threshold if threshold is not None else getattr(config, "CORR_THRESHOLD", 0.02)
 

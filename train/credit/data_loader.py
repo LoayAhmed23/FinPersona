@@ -1,8 +1,6 @@
 """
 Data loading utilities.
-Reads monthly CSVs from prime_data/ and transaction XLSX files from
-transaction_data/, enforces dtypes, cleans numeric strings, parses dates,
-tags each row with its source month, and provides a merge helper.
+Reads monthly CSV and merging logic for combining data frames 
 """
 
 import glob
@@ -15,10 +13,7 @@ import pandas as pd
 import config
 
 
-# ---------------------------------------------------------------------------
 # Helpers for parsing messy numeric strings (e.g. "1,234.00")
-# ---------------------------------------------------------------------------
-
 def _parse_int(x):
     if pd.isna(x):
         return pd.NA
@@ -41,10 +36,7 @@ def _parse_float(x):
         return np.nan
 
 
-# ---------------------------------------------------------------------------
 # Month extraction from filenames
-# ---------------------------------------------------------------------------
-
 _MONTH_MAP = {
     "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4,
     "MAY": 5, "JUN": 6, "JUL": 7, "AUG": 8,
@@ -56,14 +48,12 @@ def _get_month_year_prime(file_path: str) -> pd.Timestamp:
     """Extract datetime from prime filename like ``cleaned_JUL_2025.csv``."""
     name = os.path.basename(file_path).upper()
     match = re.search(
-        r"(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)_(\d{4})", name,
+        r"(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)_?(\d{4})", name,
     )
     if match:
         month = _MONTH_MAP[match.group(1)]
         year = int(match.group(2))
         return pd.Timestamp(year, month, 1)
-    # fallback — very early date so it sorts first
-    return pd.Timestamp("1900-01-01")
 
 
 def _get_month_year_txn(file_path: str) -> pd.Timestamp:
@@ -74,21 +64,13 @@ def _get_month_year_txn(file_path: str) -> pd.Timestamp:
         year = int(match.group(1))
         month = int(match.group(2))
         return pd.Timestamp(year, month, 1)
-    return pd.Timestamp("1900-01-01")
 
 
-# ---------------------------------------------------------------------------
 # Prime data
-# ---------------------------------------------------------------------------
-
 def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     """Load and concatenate all CSV files from the prime data directory.
 
-    - Reads with latin encoding and forces string dtypes on columns that
-      contain commas or mixed types.
     - Renames ``RIM_NO:`` -> ``RIMNO``.
-    - Parses numeric strings via _parse_int / _parse_float.
-    - Drops columns not present in the current schema.
     - Tags each row with ``snapshot_month`` extracted from the filename.
     """
     data_dir = data_dir or config.PRIME_DATA_DIR
@@ -105,19 +87,9 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     }
 
     frames = []
-    def _read_csv_safe(f):
-        # Read headers first to check if dates exist
-        headers = pd.read_csv(f, nrows=0, encoding="latin").columns.tolist()
-        parse_dates = [c for c in config.DATE_COLS_PRIME if c in headers]
-        return pd.read_csv(
-            f,
-            encoding="latin",
-            dtype=str_dtype,
-            parse_dates=parse_dates,
-        )
 
     for f in files:
-        df = _read_csv_safe(f)
+        df = pd.read_csv(f, encoding="latin", dtype=str_dtype)
         df["source_file"] = os.path.basename(f)
         df[config.MONTH_COL] = _get_month_year_prime(f)
         frames.append(df)
@@ -137,12 +109,7 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
         if col in combined.columns:
             combined[col] = combined[col].apply(_parse_int)
 
-    # Drop columns that no longer exist in the schema
-    for col in ["MAPPING_ACCNO", "MIN_PAYMENT", "OVER_LIMIT"]:
-        if col in combined.columns:
-            combined = combined.drop(columns=[col])
-
-    # Re-parse date columns that may not have been auto-parsed
+    # Parse date columns
     for col in config.DATE_COLS_PRIME:
         if col in combined.columns and not pd.api.types.is_datetime64_any_dtype(combined[col]):
             combined[col] = pd.to_datetime(combined[col], errors="coerce")
@@ -157,15 +124,10 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     return combined
 
 
-# ---------------------------------------------------------------------------
 # Transaction data
-# ---------------------------------------------------------------------------
-
 def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     """Load and concatenate all CSV files from the transaction data directory.
 
-    - Forces string dtypes on text columns.
-    - Parses date columns.
     - Tags each row with ``snapshot_month`` extracted from the filename.
     """
     data_dir = data_dir or config.TRANSACTION_DATA_DIR
@@ -194,10 +156,7 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     return combined
 
 
-# ---------------------------------------------------------------------------
 # Merge
-# ---------------------------------------------------------------------------
-
 def merge_data(prime_df: pd.DataFrame, txn_features_df: pd.DataFrame) -> pd.DataFrame:
     """Left-join prime data with aggregated transaction features.
 
@@ -210,36 +169,16 @@ def merge_data(prime_df: pd.DataFrame, txn_features_df: pd.DataFrame) -> pd.Data
     month_col = config.MONTH_COL
     txn_cols = txn_features_df.columns.tolist()
 
-    # Ensure CUSTOMER_ID dtype matches on both sides (often object vs int64)
-    if cid in prime_df.columns:
-        prime_df[cid] = pd.to_numeric(prime_df[cid], errors="coerce").astype("Int64")
-    if isinstance(txn_features_df.index, pd.MultiIndex):
-        # CUSTOMER_ID is part of the MultiIndex — rebuild with aligned dtype
-        idx_names = txn_features_df.index.names
-        txn_features_df = txn_features_df.reset_index()
-        if cid in txn_features_df.columns:
-            txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
-        txn_features_df = txn_features_df.set_index(idx_names)
-    elif cid in txn_features_df.index.names or txn_features_df.index.name == cid:
-        txn_features_df = txn_features_df.reset_index()
-        txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
-        txn_features_df = txn_features_df.set_index(cid)
-    elif cid in txn_features_df.columns:
-        txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+    prime_df[cid] = pd.to_numeric(prime_df[cid], errors="coerce").astype("Int64")
+    # CUSTOMER_ID is part of the MultiIndex — rebuild with aligned dtype
+    idx_names = txn_features_df.index.names
+    txn_features_df = txn_features_df.reset_index()
+    txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+    txn_features_df = txn_features_df.set_index(idx_names)
 
-    if month_col in prime_df.columns and isinstance(txn_features_df.index, pd.MultiIndex):
-        # Month-aware merge: txn_features is indexed by (CUSTOMER_ID, month)
-        txn_reset = txn_features_df.reset_index()
-        merged = prime_df.merge(txn_reset, on=[cid, month_col], how="left")
-    else:
-        # Fallback: original single-key merge
-        merged = prime_df.merge(
-            txn_features_df,
-            left_on=cid,
-            right_index=True,
-            how="left",
-        )
-
+    # Month-aware merge: txn_features is indexed by (CUSTOMER_ID, month)
+    txn_reset = txn_features_df.reset_index()
+    merged = prime_df.merge(txn_reset, on=[cid, month_col], how="left")
     # Fill NaN for customers with no transactions in that month
     merged[txn_cols] = merged[txn_cols].fillna(0)
 
