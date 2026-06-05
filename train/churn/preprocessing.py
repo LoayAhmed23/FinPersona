@@ -1,5 +1,5 @@
 """
-Preprocessing: encoding, imputation, and feature preparation for modeling.
+Preprocessin: encoding, imputation, and feature preparation for modeling.
 """
 
 import pandas as pd
@@ -12,19 +12,15 @@ import config
 def preprocess(df: pd.DataFrame, fit: bool = True, artifacts: dict = None):
     """Prepare features for modeling.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Merged dataset with features and target.
-    fit : bool
-        If True, fit encoders and return them in artifacts.
-        If False, reuse encoders from artifacts.
-    artifacts : dict, optional
+    If fit is True, fit encoders and return them in artifacts.
+    If fit is False, reuse encoders from artifacts.
+    
+    artifacts : dict
         Previously fitted {encoders, feature_order}.
 
     Returns
     -------
-    X : pd.DataFrame — feature matrix
+    X : pd.DataFrame 
     y : pd.Series — target vector
     artifacts : dict
     """

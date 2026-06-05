@@ -1,9 +1,8 @@
 """
-Model training, hyperparameter tuning, and persistence.
+Model training, hyperparameter tuning, and saving the best trained model.
 """
 
 import joblib
-import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -14,10 +13,7 @@ from lightgbm import LGBMClassifier
 import config
 
 
-# ---------------------------------------------------------------------------
 # Model definitions
-# ---------------------------------------------------------------------------
-
 def get_classifiers(y_train=None):
     """Return a dict of named classifiers with sensible defaults."""
     # Compute scale_pos_weight for XGBoost
@@ -53,10 +49,8 @@ def get_classifiers(y_train=None):
     }
 
 
-# ---------------------------------------------------------------------------
-# Training
-# ---------------------------------------------------------------------------
 
+# Training
 def train_classifiers(X_train, y_train, X_test, y_test) -> dict:
     """Train all classifiers and return predictions.
 
@@ -76,10 +70,7 @@ def train_classifiers(X_train, y_train, X_test, y_test) -> dict:
     return results
 
 
-# ---------------------------------------------------------------------------
 # Hyperparameter tuning (GridSearch)
-# ---------------------------------------------------------------------------
-
 def tune_models(X_train, y_train) -> dict:
     """Run GridSearchCV for Random Forest and XGBoost.
 
@@ -130,10 +121,7 @@ def tune_models(X_train, y_train) -> dict:
     return results
 
 
-# ---------------------------------------------------------------------------
-# Persistence
-# ---------------------------------------------------------------------------
-
+# Saving the model
 def save_model(model, artifacts: dict, path: str = None):
     """Persist model and preprocessing artifacts."""
     import os
