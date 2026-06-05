@@ -23,6 +23,8 @@ TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction_cleaned")
 # Output directories
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "models")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+PREDICTIONS_DIR = os.path.join(PROJECT_ROOT, "outputs")
+os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 
 ENGINEERED_FEATURES_DIR = os.path.join(DATA_DIR, "engineered_recommendation_features")
 os.makedirs(ENGINEERED_FEATURES_DIR, exist_ok=True)
@@ -33,7 +35,7 @@ XGB_MODELS_PKL = os.path.join(OUTPUT_DIR, "recommendation_xgb_models.pkl")
 XGB_META_JSON = os.path.join(OUTPUT_DIR, "recommendation_xgb_meta.json")
 CBF_SIM_PKL = os.path.join(OUTPUT_DIR, "recommendation_cbf_sim_matrix.pkl")
 CBF_META_JSON = os.path.join(OUTPUT_DIR, "recommendation_cbf_meta.json")
-BATCH_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "recommendation_batch_predictions.csv")
+BATCH_OUTPUT_PATH = os.path.join(PREDICTIONS_DIR, "recommendation_batch_predictions.csv")
 
 # ---------------------------------------------------------------------------
 # Column Definitions (Prime — for reading already-cleaned CSVs)

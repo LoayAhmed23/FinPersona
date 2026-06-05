@@ -15,9 +15,11 @@ TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction_cleaned")
 
 # Output 
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "models")
+PREDICTIONS_DIR = os.path.join(PROJECT_ROOT, "outputs")
+os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 MODEL_PATH = os.path.join(OUTPUT_DIR, "credit_default_model.joblib")
-SCORES_PATH = os.path.join(OUTPUT_DIR, "credit_risk_scores.csv")
-REPORT_PATH = os.path.join(OUTPUT_DIR, "credit_evaluation_report.txt")
+SCORES_PATH = os.path.join(PREDICTIONS_DIR, "credit_risk_scores.csv")
+REPORT_PATH = os.path.join(PREDICTIONS_DIR, "credit_evaluation_report.txt")
 
 # Column mappings
 CUSTOMER_ID = "CUSTOMER_ID"

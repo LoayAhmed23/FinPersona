@@ -16,9 +16,11 @@ CLEANED_TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction_cleaned")
 
 # Outputs
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "models")
+PREDICTIONS_DIR = os.path.join(PROJECT_ROOT, "outputs")
+os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 MODEL_PATH = os.path.join(OUTPUT_DIR, "churn_model.joblib")
-SCORES_PATH = os.path.join(OUTPUT_DIR, "churn_scores.csv")
-REPORT_PATH = os.path.join(OUTPUT_DIR, "churn_evaluation_report.txt")
+SCORES_PATH = os.path.join(PREDICTIONS_DIR, "churn_scores.csv")
+REPORT_PATH = os.path.join(PREDICTIONS_DIR, "churn_evaluation_report.txt")
 
 # Columns
 CUSTOMER_ID = "CUSTOMER_ID"         
