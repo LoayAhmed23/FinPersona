@@ -99,13 +99,13 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     logs.append("")
     logs.append("Step 1/4: Running data-cleaning prestep on new files...")
     progress_callback(15)
-    prestep_logs = run_prestep(
+    run_prestep(
         raw_prime_dir=raw_prime_dir,
         raw_transaction_dir=raw_transaction_dir,
         prime_output_dir=prime_output,
         transaction_output_dir=txn_output,
+        logs=logs
     )
-    logs.extend(prestep_logs)
     progress_callback(35)
 
     # ── 2. Load & cast cleaned data ──

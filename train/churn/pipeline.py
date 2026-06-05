@@ -30,7 +30,8 @@ def _banner(step, total, title):
 
 
 # Training pipeline
-def run_training_pipeline(tune: bool = False):
+def run_training_pipeline(tune: bool = False,
+                          prime_dir: str = None, txn_dir: str = None):
     """Full training pipeline of Churn Prediction Module.
 
     Parameters
@@ -38,18 +39,22 @@ def run_training_pipeline(tune: bool = False):
     tune : bool
         If True, run GridSearchCV for RF and XGBoost after the initial
         multi-classifier comparison.
+    prime_dir : str, optional
+        Directory containing raw prime CSV files. Defaults to config.
+    txn_dir : str, optional
+        Directory containing raw transaction files. Defaults to config.
     """
     TOTAL = 8 if tune else 7
     _ensure_output_dir()
 
     # Churn Labeling
     _banner(1, TOTAL, "CHURN LABELING")
-    churn_labels = create_churn_labels()
+    churn_labels = create_churn_labels(prime_dir)
 
     # Load Data
     _banner(2, TOTAL, "LOADING DATA")
-    txn_df = load_transaction_data()
-    prime_df = load_prime_data()
+    prime_df = load_prime_data(prime_dir)
+    txn_df = load_transaction_data(txn_dir)
 
     # Feature Engineering
     _banner(3, TOTAL, "FEATURE ENGINEERING")

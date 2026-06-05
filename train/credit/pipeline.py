@@ -10,6 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_auc_score
 from imblearn.over_sampling import SMOTE
 
+
 import config
 from data_loader import load_prime_data, load_transaction_data, merge_data
 from feature_engineering import (
@@ -103,22 +104,28 @@ def check_for_leakage(X: pd.DataFrame, y: pd.Series,
 
 # Training pipeline
 
-def run_training_pipeline(tune: bool = False, sample: bool = False):
+def run_training_pipeline(tune: bool = False, sample: bool = False,
+                          prime_dir: str = None, txn_dir: str = None):
     """Full training pipeline
 
     Parameters
+    ----------
     tune
         If True, run RandomizedSearchCV for hyperparameter tuning instead
         of training with the default parameters.
     sample : bool
         If True, use only 25% of the data (stratified) for fast iteration.
+    prime_dir : str, optional
+        Directory containing raw prime CSV files. Defaults to config.
+    txn_dir : str, optional
+        Directory containing raw transaction files. Defaults to config.
     """
     TOTAL = 13
     _ensure_output_dir()
 
     _banner(1, TOTAL, "LOADING DATA")
-    prime_df = load_prime_data()
-    txn_df   = load_transaction_data()
+    prime_df = load_prime_data(prime_dir)
+    txn_df   = load_transaction_data(txn_dir)
     
     _banner(2, TOTAL, "FEATURE ENGINEERING")
     prime_df     = engineer_prime_features(prime_df)

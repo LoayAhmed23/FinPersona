@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinPersona — AI-Powered Banking Intelligence</title>
+    <meta name="description" content="Unified banking intelligence platform: Credit Risk, Churn Prediction, and Product Recommendation.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ══════════════════════════════════════════════════════════
+           DESIGN SYSTEM — FinPersona Banking Theme
+           ══════════════════════════════════════════════════════════ */
+        :root {
+            --bg-base: #060d1a;
+            --bg-sidebar: #0a1628;
+            --bg-card: #0f1d32;
+            --bg-card-hover: #142540;
+            --bg-input: #0b1526;
+            --text-main: #e8ecf4;
+            --text-muted: #7a8ba8;
+            --text-dim: #4a5d7a;
+            --border: #1a2d4a;
+            --border-light: #243a5c;
+            --gold: #c9a84c;
+            --gold-hover: #d4b65e;
+            --gold-glow: rgba(201, 168, 76, 0.15);
+            --gold-dim: rgba(201, 168, 76, 0.08);
+            --blue: #3b82f6;
+            --blue-dim: rgba(59, 130, 246, 0.12);
+            --cyan: #06b6d4;
+            --cyan-dim: rgba(6, 182, 212, 0.12);
+            --green: #10b981;
+            --green-dim: rgba(16, 185, 129, 0.12);
+            --red: #ef4444;
+            --red-dim: rgba(239, 68, 68, 0.12);
+            --orange: #f59e0b;
+            --orange-dim: rgba(245, 158, 11, 0.12);
+            --purple: #8b5cf6;
+            --sidebar-w: 280px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-w);
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-brand {
+            padding: 1.75rem 1.5rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .sidebar-brand img {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            margin-bottom: 0.75rem;
+            filter: drop-shadow(0 4px 12px rgba(201, 168, 76, 0.2));
+        }
+
+        .sidebar-brand h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            background: linear-gradient(135deg, var(--gold), #e8d48a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.15rem;
+        }
+
+        .sidebar-brand p {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 500;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .nav-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            padding: 0.75rem 0.75rem 0.35rem;
+            font-weight: 600;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.85rem 1rem;
+            border-radius: 0.65rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: left;
+            width: 100%;
+        }
+
+        .nav-btn:hover {
+            background: var(--gold-dim);
+            color: var(--text-main);
+            border-color: rgba(201, 168, 76, 0.12);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, rgba(201, 168, 76, 0.12), rgba(201, 168, 76, 0.05));
+            color: var(--gold);
+            border-color: rgba(201, 168, 76, 0.25);
+            box-shadow: 0 0 20px rgba(201, 168, 76, 0.06);
+        }
+
+        .nav-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+
+        .nav-btn.active .nav-icon { opacity: 1; }
+
+        .nav-icon-credit { background: var(--red-dim); }
+        .nav-icon-churn  { background: var(--cyan-dim); }
+        .nav-icon-rec    { background: var(--blue-dim); }
+
+        .nav-meta {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-meta span:first-child {
+            font-weight: 600;
+            font-size: 0.88rem;
+        }
+
+        .nav-meta span:last-child {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.25rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .sidebar-footer p {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        /* ── Main Content ── */
+        .main {
+            margin-left: var(--sidebar-w);
+            min-height: 100vh;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(201, 168, 76, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+                var(--bg-base);
+        }
+
+        .main-header {
+            padding: 1.5rem 2.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            backdrop-filter: blur(12px);
+            background: rgba(6, 13, 26, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .main-header h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .main-header .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        .badge-idle { background: var(--gold-dim); color: var(--gold); border-color: rgba(201,168,76,0.2); }
+        .badge-running { background: var(--blue-dim); color: var(--blue); border-color: rgba(59,130,246,0.2); animation: pulse-badge 2s infinite; }
+        .badge-done { background: var(--green-dim); color: var(--green); border-color: rgba(16,185,129,0.2); }
+        .badge-error { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.2); }
+
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .main-content {
+            padding: 2rem 2.5rem 3rem;
+        }
+
+        /* ── Tab panels ── */
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        .tab-panel.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Card system ── */
+        .fp-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.85rem;
+            padding: 1.75rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .fp-card:hover {
+            border-color: var(--border-light);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .fp-card.locked {
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .card-head {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .step-badge {
+            width: 34px;
+            height: 34px;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .step-badge-credit { background: var(--red-dim); color: var(--red); }
+        .step-badge-churn  { background: var(--cyan-dim); color: var(--cyan); }
+        .step-badge-rec    { background: var(--blue-dim); color: var(--blue); }
+
+        .card-head h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .card-desc {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+
+        /* ── Form elements ── */
+        .fp-label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .fp-label .hint {
+            font-weight: 400;
+            color: var(--text-dim);
+        }
+
+        .fp-input {
+            width: 100%;
+            padding: 0.7rem 0.9rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .fp-input:focus { outline: none; border-color: var(--gold); }
+        .fp-input::placeholder { color: var(--text-dim); }
+
+        .input-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .input-row .fp-input { flex: 1; }
+
+        .btn-browse {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.7rem 1rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            white-space: nowrap;
+            flex-shrink: 0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-browse:hover { border-color: var(--gold); color: var(--gold); }
+
+        .dir-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .toggle-row {
+            display: flex;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .toggle-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--gold);
+        }
+
+        /* ── Buttons ── */
+        .fp-btn {
+            background: linear-gradient(135deg, var(--gold), #b8972e);
+            color: #0a1628;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: inherit;
+            letter-spacing: 0.02em;
+        }
+        .fp-btn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px var(--gold-glow); }
+        .fp-btn:active { transform: scale(0.98); }
+        .fp-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+
+        .fp-btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.6rem 1.2rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .fp-btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* ── Progress & logs ── */
+        .fp-progress {
+            width: 100%;
+            height: 5px;
+            background: var(--border);
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: none;
+        }
+        .fp-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold), #e8d48a);
+            width: 0%;
+            transition: width 0.4s ease;
+            border-radius: 3px;
+        }
+
+        .fp-log {
+            background: rgba(6, 13, 26, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.85rem;
+            margin-top: 0.85rem;
+            max-height: 240px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            display: none;
+        }
+        .fp-log .log-line { margin: 0.15rem 0; }
+
+        /* ── Metrics grid ── */
+        .fp-metrics {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
+
+        .fp-metric {
+            background: rgba(6, 13, 26, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            padding: 0.85rem;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .fp-metric:hover { border-color: var(--border-light); }
+
+        .fp-metric-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold), #e8d48a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .fp-metric-label {
+            font-size: 0.68rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 0.2rem;
+            font-weight: 500;
+        }
+
+        /* ── Risk badges ── */
+        .risk-badge {
+            display: inline-block;
+            padding: 0.3rem 0.85rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.82rem;
+        }
+        .risk-low      { background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+        .risk-medium   { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(245,158,11,0.2); }
+        .risk-high     { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+        .risk-critical { background: rgba(239,68,68,0.2); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+
+        .prob-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            margin-top: 0.6rem;
+            overflow: hidden;
+        }
+        .prob-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+        /* ── Risk result card ── */
+        .risk-result {
+            display: none;
+            margin-top: 1.25rem;
+            padding: 1.25rem;
+            background: rgba(6, 13, 26, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 0.65rem;
+        }
+
+        /* ── Comparison table ── */
+        .fp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.25rem;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .fp-table th {
+            background: var(--gold-dim);
+            padding: 0.65rem 0.85rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gold);
+            border-bottom: 2px solid var(--border);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .fp-table td {
+            padding: 0.65rem 0.85rem;
+            border-bottom: 1px solid rgba(26, 45, 74, 0.5);
+        }
+        .fp-table tr:hover td { background: var(--gold-dim); }
+        .fp-table tr.best-model td { background: rgba(201,168,76,0.06); font-weight: 600; }
+        .fp-table tr.best-model td:first-child { position: relative; padding-left: 1.8rem; }
+        .fp-table tr.best-model td:first-child::before { content: "🏆"; position: absolute; left: 0.4rem; }
+
+        /* ── Report box ── */
+        .fp-report {
+            background: rgba(6, 13, 26, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.78rem;
+            white-space: pre-wrap;
+            color: var(--text-muted);
+            max-height: 350px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        /* ── Autocomplete ── */
+        .ac-wrapper { position: relative; display: block; }
+        .ac-items {
+            position: absolute;
+            border: 1px solid var(--border);
+            z-index: 99;
+            top: 100%;
+            left: 0; right: 0;
+            max-height: 180px;
+            overflow-y: auto;
+            background: var(--bg-card);
+            border-radius: 0 0 0.5rem 0.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .ac-items div { padding: 0.6rem 0.85rem; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+        .ac-items div:hover { background: var(--border); }
+
+        /* ── Pills ── */
+        .pill {
+            display: inline-block;
+            padding: 0.2rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin: 0.2rem;
+            background: var(--green-dim);
+            color: var(--green);
+            border: 1px solid rgba(16,185,129,0.15);
+        }
+        .pill.recommended { background: var(--blue-dim); color: var(--blue); border-color: rgba(59,130,246,0.15); }
+
+        /* ── Spinner ── */
+        .spinner {
+            border: 2.5px solid rgba(10, 22, 40, 0.3);
+            border-left-color: #0a1628;
+            border-radius: 50%;
+            width: 18px; height: 18px;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .sidebar { transform: translateX(-100%); }
+            .main { margin-left: 0; }
+            .dir-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ═══════════ SIDEBAR ═══════════ -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <img src="/assets/logo.png" alt="FinPersona Logo">
+            <h1>FINPERSONA</h1>
+            <p>Banking Intelligence Suite</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-label">Modules</div>
+
+            <button class="nav-btn active" onclick="switchTab('credit')" id="navCredit">
+                <div class="nav-icon nav-icon-credit">🛡️</div>
+                <div class="nav-meta">
+                    <span>Credit Risk</span>
+                    <span>Default prediction & scoring</span>
+                </div>
+            </button>
+
+            <button class="nav-btn" onclick="switchTab('churn')" id="navChurn">
+                <div class="nav-icon nav-icon-churn">📉</div>
+                <div class="nav-meta">
+                    <span>Churn Prediction</span>
+                    <span>Customer attrition analysis</span>
+                </div>
+            </button>
+
+            <button class="nav-btn" onclick="switchTab('recommend')" id="navRec">
+                <div class="nav-icon nav-icon-rec">💡</div>
+                <div class="nav-meta">
+                    <span>Recommendation</span>
+                    <span>Product recommendation engine</span>
+                </div>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>FinPersona v1.0 · AI-Powered</p>
+        </div>
+    </aside>
+
+    <!-- ═══════════ MAIN AREA ═══════════ -->
+    <div class="main">
+
+        <!-- Header bar -->
+        <div class="main-header">
+            <h2 id="headerTitle">Credit Risk Analysis</h2>
+            <div class="header-badge badge-idle" id="headerBadge">● Ready</div>
+        </div>
+
+        <div class="main-content">
+
+            <!-- ════════════════════════════════════════════════════
+                 TAB 1: CREDIT RISK
+                 ════════════════════════════════════════════════════ -->
+            <div class="tab-panel active" id="tabCredit">
+
+                <!-- Train -->
+                <div class="fp-card" id="cr_stepTrain">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-credit">1</div>
+                        <h3>Train Credit Default Model</h3>
+                    </div>
+                    <p class="card-desc">Load raw data, clean, engineer features, and train the XGBoost model with optional hyperparameter tuning.</p>
+
+                    <div class="dir-grid">
+                        <div>
+                            <label class="fp-label">Prime Data Directory <span class="hint">(raw CSVs)</span></label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="cr_trainPrimeDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('cr_trainPrimeDir')">Browse</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="fp-label">Transaction Data Directory <span class="hint">(raw xlsx/csv)</span></label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="cr_trainTxnDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('cr_trainTxnDir')">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <label class="toggle-label"><input type="checkbox" id="cr_chkTune"> Hyperparameter Tuning</label>
+                        <label class="toggle-label"><input type="checkbox" id="cr_chkSample"> Sample Mode (25%)</label>
+                    </div>
+
+                    <button class="fp-btn" id="cr_btnTrain" onclick="cr_runTraining()">
+                        <div class="spinner" id="cr_spinTrain"></div>
+                        Start Training
+                    </button>
+
+                    <div class="fp-progress" id="cr_progTrain"><div class="fp-progress-fill" id="cr_fillTrain"></div></div>
+                    <div class="fp-log" id="cr_logTrain"></div>
+
+                    <div class="fp-metrics" id="cr_statsData">
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valSamples">0</div><div class="fp-metric-label">Total Samples</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valDefault">0</div><div class="fp-metric-label">Defaulted</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valDefaultRate">0%</div><div class="fp-metric-label">Default Rate</div></div>
+                    </div>
+
+                    <div class="fp-metrics" id="cr_statsMetrics">
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valAUC">—</div><div class="fp-metric-label">AUC</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valF1">—</div><div class="fp-metric-label">F1</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valPrecision">—</div><div class="fp-metric-label">Precision</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valRecall">—</div><div class="fp-metric-label">Recall</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valAccuracy">—</div><div class="fp-metric-label">Accuracy</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valKS">—</div><div class="fp-metric-label">KS Stat</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valThreshold">—</div><div class="fp-metric-label">Threshold</div></div>
+                    </div>
+
+                    <div class="fp-report" id="cr_reportBox"></div>
+                    <div style="margin-top:0.85rem;display:none;" id="cr_reportToggle">
+                        <button class="fp-btn-secondary" onclick="toggleEl('cr_reportBox')">Toggle Full Report</button>
+                    </div>
+                </div>
+
+                <!-- Score -->
+                <div class="fp-card locked" id="cr_stepScore">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-credit">2</div>
+                        <h3>Score New Data</h3>
+                    </div>
+                    <p class="card-desc">Apply the trained model to new customers. Browse to select the scoring data directories.</p>
+
+                    <div class="dir-grid">
+                        <div>
+                            <label class="fp-label">Prime Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="cr_scorePrimeDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('cr_scorePrimeDir')">Browse</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="fp-label">Transaction Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="cr_scoreTxnDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('cr_scoreTxnDir')">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="fp-btn" id="cr_btnScore" onclick="cr_runScoring()">
+                        <div class="spinner" id="cr_spinScore"></div>
+                        Run Scoring
+                    </button>
+
+                    <div class="fp-progress" id="cr_progScore"><div class="fp-progress-fill" id="cr_fillScore"></div></div>
+                    <div class="fp-log" id="cr_logScore"></div>
+
+                    <div class="fp-metrics" id="cr_statsScore">
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valScored">0</div><div class="fp-metric-label">Scored</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valFlagged">0</div><div class="fp-metric-label">Flagged</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="cr_valFlaggedPct">0%</div><div class="fp-metric-label">Flagged %</div></div>
+                    </div>
+                </div>
+
+                <!-- Lookup -->
+                <div class="fp-card locked" id="cr_stepLookup">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-credit">3</div>
+                        <h3>Customer Risk Lookup</h3>
+                    </div>
+                    <p class="card-desc">Look up default probability and risk tier for a specific customer.</p>
+
+                    <div class="ac-wrapper" style="max-width:400px;margin-bottom:1rem;">
+                        <label class="fp-label">RIMNO</label>
+                        <input class="fp-input" type="text" id="cr_rimnoInput" placeholder="Enter RIMNO" oninput="cr_searchCustomers(this.value)">
+                        <div id="cr_autocompleteList" class="ac-items" style="display:none;"></div>
+                    </div>
+
+                    <button class="fp-btn" id="cr_btnLookup" onclick="cr_runLookup()">
+                        <div class="spinner" id="cr_spinLookup"></div>
+                        Check Risk
+                    </button>
+
+                    <div class="risk-result" id="cr_riskResult">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">RIMNO</div><div style="font-size:1.15rem;font-weight:600;" id="cr_resRimno">—</div></div>
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">Customer ID</div><div style="font-size:1.05rem;font-weight:600;" id="cr_resCustId">—</div></div>
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">Risk Tier</div><div id="cr_resTier"></div></div>
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">Prediction</div><div style="font-size:1.05rem;font-weight:600;" id="cr_resLabel">—</div></div>
+                            <div style="min-width:180px;"><div style="color:var(--text-dim);font-size:0.78rem;">Default Probability</div><div style="font-size:1.15rem;font-weight:700;" id="cr_resProb">—</div><div class="prob-bar-bg"><div class="prob-bar-fill" id="cr_resProbBar" style="width:0%;"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════
+                 TAB 2: CHURN PREDICTION
+                 ════════════════════════════════════════════════════ -->
+            <div class="tab-panel" id="tabChurn">
+
+                <!-- Train -->
+                <div class="fp-card" id="ch_stepTrain">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-churn">1</div>
+                        <h3>Train Churn Models</h3>
+                    </div>
+                    <p class="card-desc">Load raw data, clean, engineer features, and train 5 classifiers (Logistic Regression, Decision Tree, Random Forest, XGBoost, LightGBM) with optional tuning.</p>
+
+                    <div class="dir-grid">
+                        <div>
+                            <label class="fp-label">Prime Data Directory <span class="hint">(raw CSVs)</span></label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="ch_trainPrimeDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('ch_trainPrimeDir')">Browse</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="fp-label">Transaction Data Directory <span class="hint">(raw xlsx/csv)</span></label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="ch_trainTxnDir" placeholder="Leave blank for default">
+                                <button class="btn-browse" onclick="openBrowser('ch_trainTxnDir')">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <label class="toggle-label"><input type="checkbox" id="ch_chkTune"> GridSearch Tuning (RF & XGBoost)</label>
+                    </div>
+
+                    <button class="fp-btn" id="ch_btnTrain" onclick="ch_runTraining()">
+                        <div class="spinner" id="ch_spinTrain"></div>
+                        Start Training
+                    </button>
+
+                    <div class="fp-progress" id="ch_progTrain"><div class="fp-progress-fill" id="ch_fillTrain"></div></div>
+                    <div class="fp-log" id="ch_logTrain"></div>
+
+                    <div class="fp-metrics" id="ch_statsData">
+                        <div class="fp-metric"><div class="fp-metric-val" id="ch_valSamples">0</div><div class="fp-metric-label">Total Samples</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="ch_valChurned">0</div><div class="fp-metric-label">Churned</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="ch_valRetained">0</div><div class="fp-metric-label">Retained</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="ch_valChurnRate">0%</div><div class="fp-metric-label">Churn Rate</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="ch_valFeatures">0</div><div class="fp-metric-label">Features</div></div>
+                    </div>
+
+                    <table class="fp-table" id="ch_comparisonTable">
+                        <thead><tr><th>Model</th><th>ROC AUC</th><th>F1</th><th>Precision</th><th>Recall</th><th>Accuracy</th></tr></thead>
+                        <tbody id="ch_comparisonBody"></tbody>
+                    </table>
+
+                    <div class="fp-metrics" id="ch_statsBest" style="display:none;">
+                        <div class="fp-metric" style="grid-column:1/-1;text-align:left;padding:1rem 1.25rem;">
+                            <div style="display:flex;align-items:center;gap:0.65rem;">
+                                <span style="font-size:1.3rem;">🏆</span>
+                                <div>
+                                    <div class="fp-metric-label" style="margin:0;">Best Model</div>
+                                    <div style="font-size:1rem;font-weight:600;color:var(--text-main);" id="ch_valBestModel">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="fp-report" id="ch_reportBox"></div>
+                    <div style="margin-top:0.85rem;display:none;" id="ch_reportToggle">
+                        <button class="fp-btn-secondary" onclick="toggleEl('ch_reportBox')">Toggle Full Report</button>
+                    </div>
+                </div>
+
+                <!-- Lookup -->
+                <div class="fp-card locked" id="ch_stepLookup">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-churn">2</div>
+                        <h3>Customer Churn Lookup</h3>
+                    </div>
+                    <p class="card-desc">Look up churn probability and risk tier for a specific customer.</p>
+
+                    <div class="ac-wrapper" style="max-width:400px;margin-bottom:1rem;">
+                        <label class="fp-label">RIMNO</label>
+                        <input class="fp-input" type="text" id="ch_customerId" placeholder="Enter RIMNO" oninput="ch_searchCustomers(this.value)">
+                        <div id="ch_autocompleteList" class="ac-items" style="display:none;"></div>
+                    </div>
+
+                    <button class="fp-btn" id="ch_btnLookup" onclick="ch_runLookup()">
+                        <div class="spinner" id="ch_spinLookup"></div>
+                        Check Churn Risk
+                    </button>
+
+                    <div class="risk-result" id="ch_riskResult">
+                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">RIMNO</div><div style="font-size:1.15rem;font-weight:600;" id="ch_resCustId">—</div></div>
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">Risk Tier</div><div id="ch_resTier"></div></div>
+                            <div><div style="color:var(--text-dim);font-size:0.78rem;">Prediction</div><div style="font-size:1.05rem;font-weight:600;" id="ch_resLabel">—</div></div>
+                            <div style="min-width:180px;"><div style="color:var(--text-dim);font-size:0.78rem;">Churn Probability</div><div style="font-size:1.15rem;font-weight:700;" id="ch_resProb">—</div><div class="prob-bar-bg"><div class="prob-bar-fill" id="ch_resProbBar" style="width:0%;"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════
+                 TAB 3: RECOMMENDATION
+                 ════════════════════════════════════════════════════ -->
+            <div class="tab-panel" id="tabRecommend">
+
+                <!-- Preprocessing -->
+                <div class="fp-card" id="rc_step1">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-rec">1</div>
+                        <h3>Data Preprocessing Pipeline</h3>
+                    </div>
+                    <p class="card-desc">Load, clean, and consolidate Prime and Transaction data. Provide raw data folders to run preprocessing automatically.</p>
+
+                    <div class="dir-grid">
+                        <div>
+                            <label class="fp-label">Raw Prime Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="rc_rawPrimeDir" value="D:/material/GP/FinPersona/data/original/prime" placeholder="path/to/prime">
+                                <button class="btn-browse" onclick="openBrowser('rc_rawPrimeDir')">Browse</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="fp-label">Raw Transaction Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="rc_rawTxnDir" value="D:/material/GP/FinPersona/data/original/transaction" placeholder="path/to/transaction">
+                                <button class="btn-browse" onclick="openBrowser('rc_rawTxnDir')">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="fp-btn" id="rc_btnPreprocess" onclick="rc_runPreprocessing()">
+                        <div class="spinner" id="rc_spinPreprocess"></div>
+                        Run Preprocessing
+                    </button>
+
+                    <div class="fp-progress" id="rc_progPreprocess"><div class="fp-progress-fill" id="rc_fillPreprocess"></div></div>
+                    <div class="fp-log" id="rc_logPreprocess"></div>
+
+                    <div class="fp-metrics" id="rc_statsPreprocess">
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCustomers">0</div><div class="fp-metric-label">Customers</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valFeatures">0</div><div class="fp-metric-label">Features</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valProducts">0</div><div class="fp-metric-label">Products</div></div>
+                    </div>
+                </div>
+
+                <!-- XGBoost Training -->
+                <div class="fp-card locked" id="rc_step2">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-rec">2</div>
+                        <h3>Train XGBoost Models</h3>
+                    </div>
+                    <p class="card-desc">Train predictive models with automated threshold tuning for each product.</p>
+
+                    <button class="fp-btn" id="rc_btnTrain" onclick="rc_runTraining()">
+                        <div class="spinner" id="rc_spinTrain"></div>
+                        Start Training
+                    </button>
+
+                    <div class="fp-progress" id="rc_progTrain"><div class="fp-progress-fill" id="rc_fillTrain"></div></div>
+                    <div class="fp-log" id="rc_logTrain"></div>
+
+                    <div class="fp-metrics" id="rc_statsTrain">
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valExact">0%</div><div class="fp-metric-label">Exact Match</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMicroF1">0</div><div class="fp-metric-label">Micro F1</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMicroP">0</div><div class="fp-metric-label">Micro Precision</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMicroR">0</div><div class="fp-metric-label">Micro Recall</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMacroF1">0</div><div class="fp-metric-label">Macro F1</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMacroP">0</div><div class="fp-metric-label">Macro Precision</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valMacroR">0</div><div class="fp-metric-label">Macro Recall</div></div>
+                    </div>
+                </div>
+
+                <!-- CBF Training -->
+                <div class="fp-card locked" id="rc_step3cbf">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-rec">3</div>
+                        <h3>Train CBF Model (Item Similarity)</h3>
+                    </div>
+                    <p class="card-desc">Build item-item cosine similarity matrix with threshold optimization and masking-based evaluation.</p>
+
+                    <button class="fp-btn" id="rc_btnCbf" onclick="rc_runCbfTraining()">
+                        <div class="spinner" id="rc_spinCbf"></div>
+                        Train CBF
+                    </button>
+
+                    <div class="fp-progress" id="rc_progCbf"><div class="fp-progress-fill" id="rc_fillCbf"></div></div>
+                    <div class="fp-log" id="rc_logCbf"></div>
+
+                    <div class="fp-metrics" id="rc_statsCbf">
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfExact">0%</div><div class="fp-metric-label">Exact Match</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMicroF1">0</div><div class="fp-metric-label">Micro F1</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMicroP">0</div><div class="fp-metric-label">Micro Precision</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMicroR">0</div><div class="fp-metric-label">Micro Recall</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMacroF1">0</div><div class="fp-metric-label">Macro F1</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMacroP">0</div><div class="fp-metric-label">Macro Precision</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valCbfMacroR">0</div><div class="fp-metric-label">Macro Recall</div></div>
+                    </div>
+                </div>
+
+                <!-- Inference -->
+                <div class="fp-card locked" id="rc_step4">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-rec">4</div>
+                        <h3>Customer Inference</h3>
+                    </div>
+                    <p class="card-desc">Predict recommended products for a specific customer.</p>
+
+                    <div class="ac-wrapper" style="max-width:400px;margin-bottom:1rem;">
+                        <label class="fp-label">Customer ID</label>
+                        <input class="fp-input" type="number" id="rc_customerId" placeholder="Enter Customer ID" oninput="rc_searchCustomers(this.value)">
+                        <div id="rc_autocompleteList" class="ac-items" style="display:none;"></div>
+                    </div>
+
+                    <button class="fp-btn" id="rc_btnPredict" onclick="rc_runPrediction()">
+                        <div class="spinner" id="rc_spinPredict"></div>
+                        Get Recommendations
+                    </button>
+
+                    <div class="risk-result" id="rc_predContainer">
+                        <h3 style="margin-top:0;font-size:1rem;">Results for Customer <span id="rc_resCustId" style="color:var(--gold);"></span></h3>
+                        <div style="margin-bottom:1rem;"><p class="fp-label" style="margin-bottom:0.3rem;">Currently Holds:</p><div id="rc_resHolds"></div></div>
+                        <div style="margin-bottom:1rem;"><p class="fp-label" style="margin-bottom:0.3rem;">XGBoost Recommendations:</p><div id="rc_resRecs"></div></div>
+                        <table class="fp-table" id="rc_resTable" style="display:table;">
+                            <thead><tr><th>Product</th><th>Probability</th><th>Threshold</th><th>Status</th></tr></thead>
+                            <tbody id="rc_resTableBody"></tbody>
+                        </table>
+                        <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
+                            <p class="fp-label" style="margin-bottom:0.3rem;">CBF Recommendations (Item Similarity):</p>
+                            <div id="rc_resCbf"></div>
+                            <table class="fp-table" id="rc_cbfTable" style="display:table;">
+                                <thead><tr><th>Product</th><th>Similarity Score</th></tr></thead>
+                                <tbody id="rc_resCbfTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Batch Prediction -->
+                <div class="fp-card locked" id="rc_step5">
+                    <div class="card-head">
+                        <div class="step-badge step-badge-rec">5</div>
+                        <h3>Batch Prediction (New Customers)</h3>
+                    </div>
+                    <p class="card-desc">Load new raw Prime & Transaction files, run the full pipeline, and predict products for every customer.</p>
+
+                    <div class="dir-grid">
+                        <div>
+                            <label class="fp-label">Raw Prime Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="rc_batchPrimeDir" placeholder="e.g., new_prime">
+                                <button class="btn-browse" onclick="openBrowser('rc_batchPrimeDir')">Browse</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="fp-label">Raw Transaction Directory</label>
+                            <div class="input-row">
+                                <input class="fp-input" type="text" id="rc_batchTxnDir" placeholder="e.g., new_transaction">
+                                <button class="btn-browse" onclick="openBrowser('rc_batchTxnDir')">Browse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="fp-btn" id="rc_btnBatch" onclick="rc_runBatch()">
+                        <div class="spinner" id="rc_spinBatch"></div>
+                        Run Batch Prediction
+                    </button>
+
+                    <div class="fp-progress" id="rc_progBatch"><div class="fp-progress-fill" id="rc_fillBatch"></div></div>
+                    <div class="fp-log" id="rc_logBatch"></div>
+
+                    <div class="fp-metrics" id="rc_statsBatch">
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valBatchCustomers">0</div><div class="fp-metric-label">Customers</div></div>
+                        <div class="fp-metric"><div class="fp-metric-val" id="rc_valBatchPreds">0</div><div class="fp-metric-label">Predictions</div></div>
+                    </div>
+
+                    <div id="rc_batchDownload" style="display:none;margin-top:1rem;">
+                        <a href="/recommend/api/download_batch" style="color:var(--gold);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:0.4rem;">⬇ Download batch_predictions.csv</a>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /main-content -->
+    </div><!-- /main -->
+
+
+    <!-- ═══════════ JAVASCRIPT ═══════════ -->
+    <script>
+    /* ──────────────────────────────────────────────
+       GLOBAL HELPERS
+       ────────────────────────────────────────────── */
+
+    const TITLES = {
+        credit: 'Credit Risk Analysis',
+        churn: 'Churn Prediction',
+        recommend: 'Product Recommendation',
+    };
+
+    let activeTab = 'credit';
+
+    function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1).replace('recommend', 'Rec').replace('credit', 'Credit').replace('churn', 'Churn')).classList.add('active');
+
+        // Fix nav button IDs
+        document.getElementById('navCredit').classList.remove('active');
+        document.getElementById('navChurn').classList.remove('active');
+        document.getElementById('navRec').classList.remove('active');
+        if (tab === 'credit') document.getElementById('navCredit').classList.add('active');
+        if (tab === 'churn') document.getElementById('navChurn').classList.add('active');
+        if (tab === 'recommend') document.getElementById('navRec').classList.add('active');
+
+        // Fix panel IDs
+        document.getElementById('tabCredit').classList.remove('active');
+        document.getElementById('tabChurn').classList.remove('active');
+        document.getElementById('tabRecommend').classList.remove('active');
+        if (tab === 'credit') document.getElementById('tabCredit').classList.add('active');
+        if (tab === 'churn') document.getElementById('tabChurn').classList.add('active');
+        if (tab === 'recommend') document.getElementById('tabRecommend').classList.add('active');
+
+        document.getElementById('headerTitle').textContent = TITLES[tab];
+    }
+
+    async function openBrowser(inputId) {
+        const btn = event.target;
+        btn.disabled = true; btn.textContent = '...';
+        try {
+            const res = await fetch('/api/browse', { method: 'POST' });
+            const data = await res.json();
+            if (data.path) document.getElementById(inputId).value = data.path;
+        } catch(e) { alert('Browse failed.'); }
+        finally { btn.disabled = false; btn.textContent = 'Browse'; }
+    }
+
+    function toggleEl(id) {
+        const el = document.getElementById(id);
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function showLog(id, logs) {
+        const el = document.getElementById(id);
+        if (logs && logs.length) {
+            el.style.display = 'block';
+            el.innerHTML = logs.map(l => `<div class="log-line">${l}</div>`).join('');
+            el.scrollTop = el.scrollHeight;
+        }
+    }
+
+
+    /* ──────────────────────────────────────────────
+       CREDIT RISK MODULE
+       ────────────────────────────────────────────── */
+    let cr_poll = null;
+
+    function cr_startPolling() {
+        if (cr_poll) clearInterval(cr_poll);
+        cr_poll = setInterval(async () => {
+            try {
+                const res = await fetch('/credit/api/status');
+                const data = await res.json();
+                cr_updateUI(data);
+            } catch(e) { console.error('Credit poll error', e); }
+        }, 1500);
+    }
+
+    function cr_updateUI(data) {
+        if (data.status === 'error') {
+            clearInterval(cr_poll);
+            showLog('cr_logTrain', data.training_logs);
+            showLog('cr_logScore', data.scoring_logs);
+            alert('Credit Error: ' + (data.error || 'Unknown'));
+            cr_resetButtons();
+            return;
+        }
+
+        showLog('cr_logTrain', data.training_logs);
+        showLog('cr_logScore', data.scoring_logs);
+
+        if (['training','trained','scored'].includes(data.status)) {
+            document.getElementById('cr_progTrain').style.display = 'block';
+            document.getElementById('cr_fillTrain').style.width = (data.status === 'training' ? data.progress_pct : 100) + '%';
+        }
+
+        if (data.total_samples > 0) {
+            document.getElementById('cr_statsData').style.display = 'grid';
+            document.getElementById('cr_valSamples').innerText = data.total_samples.toLocaleString();
+            document.getElementById('cr_valDefault').innerText = data.n_default.toLocaleString();
+            document.getElementById('cr_valDefaultRate').innerText = data.default_rate + '%';
+        }
+
+        if (data.metrics) {
+            document.getElementById('cr_statsMetrics').style.display = 'grid';
+            document.getElementById('cr_valAUC').innerText = data.metrics.AUC ?? '—';
+            document.getElementById('cr_valF1').innerText = data.metrics.F1 ?? '—';
+            document.getElementById('cr_valPrecision').innerText = data.metrics.Precision ?? '—';
+            document.getElementById('cr_valRecall').innerText = data.metrics.Recall ?? '—';
+            document.getElementById('cr_valAccuracy').innerText = data.metrics.Accuracy ?? '—';
+            document.getElementById('cr_valKS').innerText = data.metrics.KS ?? '—';
+            document.getElementById('cr_valThreshold').innerText = data.metrics.Threshold ?? '—';
+        }
+
+        if (data.report_text) {
+            document.getElementById('cr_reportBox').textContent = data.report_text;
+            document.getElementById('cr_reportToggle').style.display = 'block';
+        }
+
+        if (data.status === 'trained' || data.status === 'scored') {
+            document.getElementById('cr_stepScore').classList.remove('locked');
+            document.getElementById('cr_stepLookup').classList.remove('locked');
+            document.getElementById('cr_spinTrain').style.display = 'none';
+            document.getElementById('cr_btnTrain').disabled = false;
+        }
+
+        if (data.status === 'scoring') {
+            document.getElementById('cr_progScore').style.display = 'block';
+            document.getElementById('cr_fillScore').style.width = data.progress_pct + '%';
+        }
+
+        if (data.n_scored > 0) {
+            document.getElementById('cr_statsScore').style.display = 'grid';
+            document.getElementById('cr_valScored').innerText = data.n_scored.toLocaleString();
+            document.getElementById('cr_valFlagged').innerText = data.n_flagged.toLocaleString();
+            document.getElementById('cr_valFlaggedPct').innerText = data.flagged_pct + '%';
+        }
+
+        if (data.status === 'scored') {
+            document.getElementById('cr_progScore').style.display = 'block';
+            document.getElementById('cr_fillScore').style.width = '100%';
+            document.getElementById('cr_spinScore').style.display = 'none';
+            document.getElementById('cr_btnScore').disabled = false;
+        }
+
+        if (data.status !== 'training' && data.status !== 'scoring' && data.status !== 'loading') {
+            clearInterval(cr_poll);
+        }
+    }
+
+    function cr_resetButtons() {
+        ['cr_spinTrain','cr_spinScore','cr_spinLookup'].forEach(id => document.getElementById(id).style.display = 'none');
+        ['cr_btnTrain','cr_btnScore','cr_btnLookup'].forEach(id => document.getElementById(id).disabled = false);
+    }
+
+    async function cr_runTraining() {
+        const tune = document.getElementById('cr_chkTune').checked;
+        const sample = document.getElementById('cr_chkSample').checked;
+        const primeDir = document.getElementById('cr_trainPrimeDir').value.trim();
+        const txnDir = document.getElementById('cr_trainTxnDir').value.trim();
+
+        document.getElementById('cr_btnTrain').disabled = true;
+        document.getElementById('cr_spinTrain').style.display = 'block';
+
+        try {
+            const payload = { tune, sample };
+            if (primeDir) payload.prime_dir = primeDir;
+            if (txnDir) payload.txn_dir = txnDir;
+            await fetch('/credit/api/train', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            cr_startPolling();
+        } catch(e) { alert('Request failed.'); cr_resetButtons(); }
+    }
+
+    async function cr_runScoring() {
+        const primeDir = document.getElementById('cr_scorePrimeDir').value.trim();
+        const txnDir = document.getElementById('cr_scoreTxnDir').value.trim();
+
+        document.getElementById('cr_btnScore').disabled = true;
+        document.getElementById('cr_spinScore').style.display = 'block';
+
+        try {
+            const payload = {};
+            if (primeDir) payload.prime_dir = primeDir;
+            if (txnDir) payload.txn_dir = txnDir;
+            await fetch('/credit/api/score', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            cr_startPolling();
+        } catch(e) { alert('Scoring failed.'); cr_resetButtons(); }
+    }
+
+    async function cr_runLookup() {
+        const rimno = document.getElementById('cr_rimnoInput').value;
+        if (!rimno) return;
+
+        document.getElementById('cr_btnLookup').disabled = true;
+        document.getElementById('cr_spinLookup').style.display = 'block';
+
+        try {
+            const res = await fetch('/credit/api/lookup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ rimno }) });
+            const data = await res.json();
+            cr_resetButtons();
+            if (data.error) { alert(data.error); return; }
+
+            document.getElementById('cr_riskResult').style.display = 'block';
+            document.getElementById('cr_resRimno').innerText = data.rimno;
+            document.getElementById('cr_resCustId').innerText = data.customer_id ?? '—';
+            document.getElementById('cr_resLabel').innerText = data.label_text;
+            document.getElementById('cr_resProb').innerText = data.default_probability + '%';
+            const tierEl = document.getElementById('cr_resTier');
+            tierEl.innerHTML = `<span class="risk-badge risk-${data.risk_tier.toLowerCase()}">${data.risk_tier}</span>`;
+            const bar = document.getElementById('cr_resProbBar');
+            bar.style.width = data.default_probability + '%';
+            bar.style.background = data.default_probability >= 70 ? 'var(--red)' : data.default_probability >= 40 ? 'var(--orange)' : data.default_probability >= 20 ? 'var(--gold)' : 'var(--green)';
+            document.getElementById('cr_resLabel').style.color = data.predicted_label === 1 ? 'var(--red)' : 'var(--green)';
+        } catch(e) { alert('Lookup failed.'); cr_resetButtons(); }
+    }
+
+    let cr_searchTimeout;
+    function cr_searchCustomers(val) {
+        clearTimeout(cr_searchTimeout);
+        const list = document.getElementById('cr_autocompleteList');
+        list.innerHTML = ''; list.style.display = 'none';
+        if (!val) return;
+        cr_searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch('/credit/api/customers?q=' + val);
+                const data = await res.json();
+                if (data.customers && data.customers.length) {
+                    list.style.display = 'block';
+                    data.customers.forEach(rimno => {
+                        const div = document.createElement('div');
+                        div.textContent = rimno;
+                        div.addEventListener('click', () => { document.getElementById('cr_rimnoInput').value = rimno; list.innerHTML = ''; list.style.display = 'none'; });
+                        list.appendChild(div);
+                    });
+                }
+            } catch(e) {}
+        }, 300);
+    }
+
+
+    /* ──────────────────────────────────────────────
+       CHURN MODULE
+       ────────────────────────────────────────────── */
+    let ch_poll = null;
+
+    function ch_startPolling() {
+        if (ch_poll) clearInterval(ch_poll);
+        ch_poll = setInterval(async () => {
+            try {
+                const res = await fetch('/churn/api/status');
+                const data = await res.json();
+                ch_updateUI(data);
+            } catch(e) { console.error('Churn poll error', e); }
+        }, 1500);
+    }
+
+    function ch_updateUI(data) {
+        if (data.status === 'error') {
+            clearInterval(ch_poll);
+            showLog('ch_logTrain', data.training_logs);
+            alert('Churn Error: ' + (data.error || 'Unknown'));
+            ch_resetButtons();
+            return;
+        }
+
+        showLog('ch_logTrain', data.training_logs);
+
+        if (['training','trained'].includes(data.status)) {
+            document.getElementById('ch_progTrain').style.display = 'block';
+            document.getElementById('ch_fillTrain').style.width = (data.status === 'training' ? data.progress_pct : 100) + '%';
+        }
+
+        if (data.total_samples > 0) {
+            document.getElementById('ch_statsData').style.display = 'grid';
+            document.getElementById('ch_valSamples').innerText = data.total_samples.toLocaleString();
+            document.getElementById('ch_valChurned').innerText = data.n_churned.toLocaleString();
+            document.getElementById('ch_valRetained').innerText = data.n_retained.toLocaleString();
+            document.getElementById('ch_valChurnRate').innerText = data.churn_rate + '%';
+            document.getElementById('ch_valFeatures').innerText = data.n_features;
+        }
+
+        if (data.metrics) {
+            const table = document.getElementById('ch_comparisonTable');
+            const tbody = document.getElementById('ch_comparisonBody');
+            table.style.display = 'table';
+            const models = Object.keys(data.metrics);
+            tbody.innerHTML = models.map((name, i) => {
+                const m = data.metrics[name];
+                return `<tr class="${i === 0 ? 'best-model' : ''}"><td>${name}</td><td>${m.ROC_AUC}</td><td>${m.F1}</td><td>${m.Precision}</td><td>${m.Recall}</td><td>${m.Accuracy}</td></tr>`;
+            }).join('');
+            if (data.best_model_name) {
+                document.getElementById('ch_statsBest').style.display = 'grid';
+                document.getElementById('ch_valBestModel').innerText = data.best_model_name;
+            }
+        }
+
+        if (data.report_text) {
+            document.getElementById('ch_reportBox').textContent = data.report_text;
+            document.getElementById('ch_reportToggle').style.display = 'block';
+        }
+
+        if (data.status === 'trained') {
+            document.getElementById('ch_stepLookup').classList.remove('locked');
+            document.getElementById('ch_spinTrain').style.display = 'none';
+            document.getElementById('ch_btnTrain').disabled = false;
+        }
+
+        if (data.status !== 'training') clearInterval(ch_poll);
+    }
+
+    function ch_resetButtons() {
+        ['ch_spinTrain','ch_spinLookup'].forEach(id => document.getElementById(id).style.display = 'none');
+        ['ch_btnTrain','ch_btnLookup'].forEach(id => document.getElementById(id).disabled = false);
+    }
+
+    async function ch_runTraining() {
+        const tune = document.getElementById('ch_chkTune').checked;
+        const primeDir = document.getElementById('ch_trainPrimeDir').value.trim();
+        const txnDir = document.getElementById('ch_trainTxnDir').value.trim();
+
+        document.getElementById('ch_btnTrain').disabled = true;
+        document.getElementById('ch_spinTrain').style.display = 'block';
+
+        try {
+            const payload = { tune };
+            if (primeDir) payload.prime_dir = primeDir;
+            if (txnDir) payload.txn_dir = txnDir;
+            await fetch('/churn/api/train', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            ch_startPolling();
+        } catch(e) { alert('Request failed.'); ch_resetButtons(); }
+    }
+
+    async function ch_runLookup() {
+        const cid = document.getElementById('ch_customerId').value;
+        if (!cid) return;
+
+        document.getElementById('ch_btnLookup').disabled = true;
+        document.getElementById('ch_spinLookup').style.display = 'block';
+
+        try {
+            const res = await fetch('/churn/api/lookup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customer_id: cid }) });
+            const data = await res.json();
+            ch_resetButtons();
+            if (data.error) { alert(data.error); return; }
+
+            document.getElementById('ch_riskResult').style.display = 'block';
+            document.getElementById('ch_resCustId').innerText = data.customer_id;
+            document.getElementById('ch_resLabel').innerText = data.label_text;
+            document.getElementById('ch_resProb').innerText = data.churn_probability + '%';
+            document.getElementById('ch_resTier').innerHTML = `<span class="risk-badge risk-${data.risk_tier.toLowerCase()}">${data.risk_tier}</span>`;
+            const bar = document.getElementById('ch_resProbBar');
+            bar.style.width = data.churn_probability + '%';
+            bar.style.background = data.churn_probability >= 70 ? 'var(--red)' : data.churn_probability >= 40 ? 'var(--orange)' : data.churn_probability >= 20 ? 'var(--cyan)' : 'var(--green)';
+            document.getElementById('ch_resLabel').style.color = data.predicted_churn === 1 ? 'var(--red)' : 'var(--green)';
+        } catch(e) { alert('Lookup failed.'); ch_resetButtons(); }
+    }
+
+    let ch_searchTimeout;
+    function ch_searchCustomers(val) {
+        clearTimeout(ch_searchTimeout);
+        const list = document.getElementById('ch_autocompleteList');
+        list.innerHTML = ''; list.style.display = 'none';
+        if (!val) return;
+        ch_searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch('/churn/api/customers?q=' + val);
+                const data = await res.json();
+                if (data.customers && data.customers.length) {
+                    list.style.display = 'block';
+                    data.customers.forEach(cid => {
+                        const div = document.createElement('div');
+                        div.textContent = cid;
+                        div.addEventListener('click', () => { document.getElementById('ch_customerId').value = cid; list.innerHTML = ''; list.style.display = 'none'; });
+                        list.appendChild(div);
+                    });
+                }
+            } catch(e) {}
+        }, 300);
+    }
+
+
+    /* ──────────────────────────────────────────────
+       RECOMMENDATION MODULE
+       ────────────────────────────────────────────── */
+    let rc_poll = null;
+
+    function rc_startPolling() {
+        if (rc_poll) clearInterval(rc_poll);
+        rc_poll = setInterval(async () => {
+            try {
+                const res = await fetch('/recommend/api/status');
+                const data = await res.json();
+                rc_updateUI(data);
+            } catch(e) { console.error('Recommend poll error', e); }
+        }, 1000);
+    }
+
+    function rc_updateUI(data) {
+        if (data.status === 'error' || data.cbf_status === 'error' || data.batch_status === 'error') {
+            clearInterval(rc_poll);
+            showLog('rc_logPreprocess', data.PREPROCESSING_logs);
+            showLog('rc_logTrain', data.training_logs);
+            showLog('rc_logCbf', data.cbf_logs);
+            showLog('rc_logBatch', data.batch_logs);
+            alert('Recommendation Error: ' + (data.error || 'Unknown'));
+            rc_resetButtons();
+            return;
+        }
+
+        // Preprocessing
+        if (['running_PREPROCESSING','PREPROCESSING_done','training','trained'].includes(data.status)) {
+            showLog('rc_logPreprocess', data.PREPROCESSING_logs);
+            document.getElementById('rc_progPreprocess').style.display = 'block';
+            document.getElementById('rc_fillPreprocess').style.width = (data.status === 'running_PREPROCESSING' ? data.progress_pct : 100) + '%';
+        }
+
+        if (['PREPROCESSING_done','training','trained'].includes(data.status)) {
+            document.getElementById('rc_step2').classList.remove('locked');
+            document.getElementById('rc_step3cbf').classList.remove('locked');
+            document.getElementById('rc_statsPreprocess').style.display = 'grid';
+            document.getElementById('rc_valCustomers').innerText = data.customer_count.toLocaleString();
+            document.getElementById('rc_valFeatures').innerText = data.feature_count;
+            document.getElementById('rc_valProducts').innerText = data.product_count;
+            document.getElementById('rc_spinPreprocess').style.display = 'none';
+            document.getElementById('rc_btnPreprocess').disabled = false;
+        }
+
+        // XGBoost training
+        if (['training','trained'].includes(data.status)) {
+            showLog('rc_logTrain', data.training_logs);
+            document.getElementById('rc_progTrain').style.display = 'block';
+            document.getElementById('rc_fillTrain').style.width = (data.status === 'training' ? data.progress_pct : 100) + '%';
+        }
+
+        if (data.status === 'trained') {
+            document.getElementById('rc_statsTrain').style.display = 'grid';
+            if (data.metrics) {
+                document.getElementById('rc_valExact').innerText = data.metrics.exact_match_accuracy + '%';
+                document.getElementById('rc_valMicroF1').innerText = data.metrics.micro.f1;
+                document.getElementById('rc_valMicroP').innerText = data.metrics.micro.precision;
+                document.getElementById('rc_valMicroR').innerText = data.metrics.micro.recall;
+                document.getElementById('rc_valMacroF1').innerText = data.metrics.macro.f1;
+                document.getElementById('rc_valMacroP').innerText = data.metrics.macro.precision;
+                document.getElementById('rc_valMacroR').innerText = data.metrics.macro.recall;
+            }
+            document.getElementById('rc_spinTrain').style.display = 'none';
+            document.getElementById('rc_btnTrain').disabled = false;
+            document.getElementById('rc_step4').classList.remove('locked');
+            document.getElementById('rc_step5').classList.remove('locked');
+        }
+
+        // CBF
+        if (['training_cbf','cbf_trained'].includes(data.cbf_status)) {
+            showLog('rc_logCbf', data.cbf_logs);
+            document.getElementById('rc_progCbf').style.display = 'block';
+            document.getElementById('rc_fillCbf').style.width = (data.cbf_status === 'training_cbf' ? data.cbf_progress_pct : 100) + '%';
+        }
+
+        if (data.cbf_status === 'cbf_trained') {
+            document.getElementById('rc_statsCbf').style.display = 'grid';
+            if (data.cbf_metrics) {
+                document.getElementById('rc_valCbfExact').innerText = data.cbf_metrics.exact_match_accuracy + '%';
+                document.getElementById('rc_valCbfMicroF1').innerText = data.cbf_metrics.micro.f1;
+                document.getElementById('rc_valCbfMicroP').innerText = data.cbf_metrics.micro.precision;
+                document.getElementById('rc_valCbfMicroR').innerText = data.cbf_metrics.micro.recall;
+                document.getElementById('rc_valCbfMacroF1').innerText = data.cbf_metrics.macro.f1;
+                document.getElementById('rc_valCbfMacroP').innerText = data.cbf_metrics.macro.precision;
+                document.getElementById('rc_valCbfMacroR').innerText = data.cbf_metrics.macro.recall;
+            }
+            document.getElementById('rc_spinCbf').style.display = 'none';
+            document.getElementById('rc_btnCbf').disabled = false;
+        }
+
+        // Batch
+        if (['running_batch','batch_done'].includes(data.batch_status)) {
+            showLog('rc_logBatch', data.batch_logs);
+            document.getElementById('rc_progBatch').style.display = 'block';
+            document.getElementById('rc_fillBatch').style.width = (data.batch_status === 'running_batch' ? data.batch_progress_pct : 100) + '%';
+        }
+
+        if (data.batch_status === 'batch_done') {
+            document.getElementById('rc_statsBatch').style.display = 'grid';
+            document.getElementById('rc_valBatchCustomers').innerText = data.batch_customer_count.toLocaleString();
+            document.getElementById('rc_valBatchPreds').innerText = data.batch_prediction_count.toLocaleString();
+            document.getElementById('rc_batchDownload').style.display = 'block';
+            document.getElementById('rc_spinBatch').style.display = 'none';
+            document.getElementById('rc_btnBatch').disabled = false;
+        }
+
+        // Stop polling
+        const xDone = data.status !== 'running_PREPROCESSING' && data.status !== 'training';
+        const cDone = data.cbf_status !== 'training_cbf';
+        const bDone = data.batch_status !== 'running_batch';
+        if (xDone && cDone && bDone) clearInterval(rc_poll);
+    }
+
+    function rc_resetButtons() {
+        ['rc_spinPreprocess','rc_spinTrain','rc_spinCbf','rc_spinPredict','rc_spinBatch'].forEach(id => document.getElementById(id).style.display = 'none');
+        ['rc_btnPreprocess','rc_btnTrain','rc_btnCbf','rc_btnPredict','rc_btnBatch'].forEach(id => document.getElementById(id).disabled = false);
+    }
+
+    async function rc_runPreprocessing() {
+        const rawPrime = document.getElementById('rc_rawPrimeDir').value;
+        const rawTxn = document.getElementById('rc_rawTxnDir').value;
+
+        document.getElementById('rc_btnPreprocess').disabled = true;
+        document.getElementById('rc_spinPreprocess').style.display = 'block';
+
+        try {
+            const payload = { prime_dir: 'prime_cleaned', transaction_dir: 'transaction_cleaned' };
+            if (rawPrime) payload.raw_prime_dir = rawPrime;
+            if (rawTxn) payload.raw_transaction_dir = rawTxn;
+            await fetch('/recommend/api/run_PREPROCESSING', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            rc_startPolling();
+        } catch(e) { alert('Request failed.'); rc_resetButtons(); }
+    }
+
+    async function rc_runTraining() {
+        document.getElementById('rc_btnTrain').disabled = true;
+        document.getElementById('rc_spinTrain').style.display = 'block';
+        try {
+            await fetch('/recommend/api/train', { method: 'POST' });
+            rc_startPolling();
+        } catch(e) { alert('Request failed.'); rc_resetButtons(); }
+    }
+
+    async function rc_runCbfTraining() {
+        document.getElementById('rc_btnCbf').disabled = true;
+        document.getElementById('rc_spinCbf').style.display = 'block';
+        try {
+            await fetch('/recommend/api/train_cbf', { method: 'POST' });
+            rc_startPolling();
+        } catch(e) { alert('Request failed.'); rc_resetButtons(); }
+    }
+
+    async function rc_runPrediction() {
+        const cid = document.getElementById('rc_customerId').value;
+        if (!cid) return;
+
+        document.getElementById('rc_btnPredict').disabled = true;
+        document.getElementById('rc_spinPredict').style.display = 'block';
+
+        try {
+            const [xgbRes, cbfRes] = await Promise.all([
+                fetch('/recommend/api/predict', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customer_id: cid }) }),
+                fetch('/recommend/api/predict_cbf', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ customer_id: cid }) }).catch(() => null),
+            ]);
+
+            const xgbData = await xgbRes.json();
+            rc_resetButtons();
+            if (xgbData.error) { alert(xgbData.error); return; }
+
+            document.getElementById('rc_predContainer').style.display = 'block';
+            document.getElementById('rc_resCustId').innerText = xgbData.customer_id;
+            document.getElementById('rc_resHolds').innerHTML = xgbData.already_holding.map(p => `<span class="pill">${p.replace('HAS_PROD_','')}</span>`).join('');
+            document.getElementById('rc_resRecs').innerHTML = xgbData.predicted_products.map(p => `<span class="pill recommended">${p.product.replace('HAS_PROD_','')}</span>`).join('') || '<span style="color:var(--text-dim);">No recommendations</span>';
+            document.getElementById('rc_resTableBody').innerHTML = xgbData.predicted_products.map(p =>
+                `<tr><td>${p.product.replace('HAS_PROD_','')}</td><td>${(p.probability * 100).toFixed(1)}%</td><td>${(p.threshold * 100).toFixed(1)}%</td><td style="color:var(--green);">✓ Recommended</td></tr>`
+            ).join('');
+
+            // CBF results
+            if (cbfRes && cbfRes.ok) {
+                const cbfData = await cbfRes.json();
+                if (!cbfData.error) {
+                    document.getElementById('rc_resCbf').innerHTML = cbfData.cbf_recommendations.map(p => `<span class="pill recommended">${p.product.replace('HAS_PROD_','')}</span>`).join('') || '<span style="color:var(--text-dim);">No CBF recommendations</span>';
+                    document.getElementById('rc_resCbfTableBody').innerHTML = cbfData.cbf_recommendations.map(p =>
+                        `<tr><td>${p.product.replace('HAS_PROD_','')}</td><td>${(p.score * 100).toFixed(1)}%</td></tr>`
+                    ).join('');
+                }
+            }
+        } catch(e) { alert('Prediction failed.'); rc_resetButtons(); }
+    }
+
+    async function rc_runBatch() {
+        const prime = document.getElementById('rc_batchPrimeDir').value.trim();
+        const txn = document.getElementById('rc_batchTxnDir').value.trim();
+        if (!prime || !txn) { alert('Please provide both directories.'); return; }
+
+        document.getElementById('rc_btnBatch').disabled = true;
+        document.getElementById('rc_spinBatch').style.display = 'block';
+
+        try {
+            await fetch('/recommend/api/predict_batch', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ raw_prime_dir: prime, raw_transaction_dir: txn }) });
+            rc_startPolling();
+        } catch(e) { alert('Request failed.'); rc_resetButtons(); }
+    }
+
+    let rc_searchTimeout;
+    function rc_searchCustomers(val) {
+        clearTimeout(rc_searchTimeout);
+        const list = document.getElementById('rc_autocompleteList');
+        list.innerHTML = ''; list.style.display = 'none';
+        if (!val) return;
+        rc_searchTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch('/recommend/api/customers?q=' + val);
+                const data = await res.json();
+                if (data.customers && data.customers.length) {
+                    list.style.display = 'block';
+                    data.customers.forEach(cid => {
+                        const div = document.createElement('div');
+                        div.textContent = cid;
+                        div.addEventListener('click', () => { document.getElementById('rc_customerId').value = cid; list.innerHTML = ''; list.style.display = 'none'; });
+                        list.appendChild(div);
+                    });
+                }
+            } catch(e) {}
+        }, 300);
+    }
+
+
+    /* ──────────────────────────────────────────────
+       PAGE LOAD — Restore state from each backend
+       ────────────────────────────────────────────── */
+    window.addEventListener('load', async () => {
+        try {
+            const crRes = await fetch('/credit/api/status').catch(() => null);
+            if (crRes && crRes.ok) cr_updateUI(await crRes.json());
+        } catch(e) {}
+
+        try {
+            const chRes = await fetch('/churn/api/status').catch(() => null);
+            if (chRes && chRes.ok) ch_updateUI(await chRes.json());
+        } catch(e) {}
+
+        try {
+            const rcRes = await fetch('/recommend/api/status').catch(() => null);
+            if (rcRes && rcRes.ok) rc_updateUI(await rcRes.json());
+        } catch(e) {}
+    });
+    </script>
+
+</body>
+</html>

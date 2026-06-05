@@ -567,8 +567,27 @@
                 <h2 class="card-title">Train Credit Default Model</h2>
             </div>
             <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-                Load data, engineer features, and train the XGBoost model with optional hyperparameter tuning.
+                Load raw data, clean, engineer features, and train the XGBoost model with optional hyperparameter tuning.
             </p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="trainPrimeDir">Prime Data Directory <span
+                            style="color:var(--text-muted);font-weight:400;">(raw CSVs)</span></label>
+                    <div class="input-with-browse">
+                        <input type="text" id="trainPrimeDir" placeholder="Leave blank for default">
+                        <button type="button" class="btn-browse" onclick="openBrowser('trainPrimeDir')">Browse</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="trainTxnDir">Transaction Data Directory <span
+                            style="color:var(--text-muted);font-weight:400;">(raw xlsx/csv)</span></label>
+                    <div class="input-with-browse">
+                        <input type="text" id="trainTxnDir" placeholder="Leave blank for default">
+                        <button type="button" class="btn-browse" onclick="openBrowser('trainTxnDir')">Browse</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="toggle-group">
                 <label class="toggle-label">
@@ -896,15 +915,21 @@
         async function runTraining() {
             const tune = document.getElementById('chkTune').checked;
             const sample = document.getElementById('chkSample').checked;
+            const primeDir = document.getElementById('trainPrimeDir').value.trim();
+            const txnDir = document.getElementById('trainTxnDir').value.trim();
 
             document.getElementById('btnTrain').disabled = true;
             document.getElementById('spinTrain').style.display = 'block';
 
             try {
+                const payload = { tune, sample };
+                if (primeDir) payload.prime_dir = primeDir;
+                if (txnDir) payload.txn_dir = txnDir;
+
                 await fetch('/api/train', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tune, sample })
+                    body: JSON.stringify(payload)
                 });
                 startPolling();
             } catch (e) {

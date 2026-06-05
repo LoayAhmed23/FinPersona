@@ -125,6 +125,8 @@ def api_train():
 
     data = request.json or {}
     tune = data.get("tune", False)
+    prime_dir = data.get("prime_dir", "").strip() or None
+    txn_dir = data.get("txn_dir", "").strip() or None
 
     # Reset state
     pipeline_state.update({
@@ -156,15 +158,15 @@ def api_train():
             pipeline_state["progress_pct"] = 10
             log("[STEP 1/7] Creating churn labels ...")
             from data_loader import create_churn_labels, load_transaction_data, load_prime_data
-            churn_labels = create_churn_labels()
+            churn_labels = create_churn_labels(prime_dir)
             n_churned_label = int(churn_labels[config.TARGET_COL].sum())
             log(f"  Labeled {len(churn_labels):,} customers — {n_churned_label:,} churned")
 
             # Step 2: Load data
             pipeline_state["progress_pct"] = 20
-            log("[STEP 2/7] Loading transaction & prime data ...")
-            txn_df = load_transaction_data()
-            prime_df = load_prime_data()
+            log("[STEP 2/7] Loading raw data & cleaning ...")
+            prime_df = load_prime_data(prime_dir)
+            txn_df = load_transaction_data(txn_dir)
             log(f"  Transactions: {len(txn_df):,} rows")
             log(f"  Prime: {len(prime_df):,} rows")
 
@@ -368,6 +370,38 @@ def api_report():
         with open(config.REPORT_PATH, "r") as f:
             return jsonify({"report": f.read()})
     return jsonify({"report": ""})
+
+
+@app.route("/api/browse", methods=["POST"])
+def api_browse():
+    """Open a native Windows folder picker dialog and return the selected path."""
+    import subprocess
+
+    script = (
+        "import tkinter as tk; "
+        "from tkinter import filedialog; "
+        "root = tk.Tk(); "
+        "root.withdraw(); "
+        "root.attributes('-topmost', True); "
+        "path = filedialog.askdirectory(title='Select Directory'); "
+        "print(path); "
+        "root.destroy()"
+    )
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True, text=True, timeout=120,
+        )
+        selected = result.stdout.strip()
+        if selected:
+            return jsonify({"path": selected.replace("\\", "/")})
+        else:
+            return jsonify({"path": ""})  # user cancelled
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Dialog timed out."}), 408
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

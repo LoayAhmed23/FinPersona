@@ -170,6 +170,8 @@ def api_train():
     data = request.json or {}
     tune = data.get("tune", False)
     sample = data.get("sample", False)
+    prime_dir = data.get("prime_dir", "").strip() or None
+    txn_dir = data.get("txn_dir", "").strip() or None
 
     # Reset state
     pipeline_state.update({
@@ -212,8 +214,8 @@ def api_train():
             log("[STEP 1/13] Loading data ...")
 
             from data_loader import load_prime_data, load_transaction_data, merge_data
-            prime_df = load_prime_data()
-            txn_df = load_transaction_data()
+            prime_df = load_prime_data(prime_dir)
+            txn_df = load_transaction_data(txn_dir)
             log(f"  Prime rows: {len(prime_df):,}")
             log(f"  Transaction rows: {len(txn_df):,}")
 
@@ -254,7 +256,10 @@ def api_train():
             log("[STEP 6-13] Running full pipeline ...")
 
             # Now run the actual pipeline
-            metrics = credit_pipeline.run_training_pipeline(tune=tune, sample=sample)
+            metrics = credit_pipeline.run_training_pipeline(
+                tune=tune, sample=sample,
+                prime_dir=prime_dir, txn_dir=txn_dir,
+            )
 
             pipeline_state["metrics"] = {
                 k: round(v, 4) if isinstance(v, float) else v

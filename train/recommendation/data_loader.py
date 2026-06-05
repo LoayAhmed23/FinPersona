@@ -149,8 +149,8 @@ def run_prestep(raw_prime_dir, raw_transaction_dir,
             logs.append(f"  WARNING: {unmatched} rows could not be assigned a CUSTOMER_ID.")
 
         # Split active / historical
-        is_inactive_status = df['STATUS'].isin(config.INACTIVE_STATUSES) if 'STATUS' in df.columns else False
-        is_inactive_card = df['Card account status '].isin(config.INACTIVE_STATUSES) if 'Card account status ' in df.columns else False
+        is_inactive_status = df['STATUS'].isin(config.INACTIVE_STATUSES) if 'STATUS' in df.columns else pd.Series(False, index=df.index)
+        is_inactive_card = df['Card account status '].isin(config.INACTIVE_STATUSES) if 'Card account status ' in df.columns else pd.Series(False, index=df.index)
         is_historical = is_inactive_status & is_inactive_card
 
         historical_df = df[is_historical].copy()

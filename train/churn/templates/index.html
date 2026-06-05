@@ -452,6 +452,35 @@
             opacity: 0.5;
             pointer-events: none;
         }
+
+        /* Browse button */
+        .input-with-browse {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-with-browse input {
+            flex: 1;
+        }
+
+        .btn-browse {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .btn-browse:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .form-group-dir {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 
@@ -470,9 +499,28 @@
                 <h2 class="card-title">Train Churn Models</h2>
             </div>
             <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-                Load data, engineer features, and train 5 classifiers (Logistic Regression, Decision Tree, Random
+                Load raw data, clean, engineer features, and train 5 classifiers (Logistic Regression, Decision Tree, Random
                 Forest, XGBoost, LightGBM) with optional GridSearch tuning.
             </p>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+                <div class="form-group form-group-dir">
+                    <label for="trainPrimeDir">Prime Data Directory <span
+                            style="color:var(--text-muted);font-weight:400;">(raw CSVs)</span></label>
+                    <div class="input-with-browse">
+                        <input type="text" id="trainPrimeDir" placeholder="Leave blank for default">
+                        <button type="button" class="btn-browse" onclick="openBrowser('trainPrimeDir')">Browse</button>
+                    </div>
+                </div>
+                <div class="form-group form-group-dir">
+                    <label for="trainTxnDir">Transaction Data Directory <span
+                            style="color:var(--text-muted);font-weight:400;">(raw xlsx/csv)</span></label>
+                    <div class="input-with-browse">
+                        <input type="text" id="trainTxnDir" placeholder="Leave blank for default">
+                        <button type="button" class="btn-browse" onclick="openBrowser('trainTxnDir')">Browse</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="toggle-group">
                 <label class="toggle-label">
@@ -604,6 +652,29 @@
     <script>
         let pollInterval = null;
 
+        // ── Browse: opens native Windows folder picker ──
+        async function openBrowser(inputId) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Opening...';
+
+            try {
+                const res = await fetch('/api/browse', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert('Browse error: ' + data.error);
+                } else if (data.path) {
+                    document.getElementById(inputId).value = data.path;
+                }
+            } catch (e) {
+                alert('Failed to open folder picker.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Browse';
+            }
+        }
+
         function startPolling() {
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(async () => {
@@ -707,15 +778,21 @@
 
         async function runTraining() {
             const tune = document.getElementById('chkTune').checked;
+            const primeDir = document.getElementById('trainPrimeDir').value.trim();
+            const txnDir = document.getElementById('trainTxnDir').value.trim();
 
             document.getElementById('btnTrain').disabled = true;
             document.getElementById('spinTrain').style.display = 'block';
 
             try {
+                const payload = { tune };
+                if (primeDir) payload.prime_dir = primeDir;
+                if (txnDir) payload.txn_dir = txnDir;
+
                 await fetch('/api/train', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tune })
+                    body: JSON.stringify(payload)
                 });
                 startPolling();
             } catch (e) {
