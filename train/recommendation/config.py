@@ -11,7 +11,7 @@ import os
 # Paths
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SAVE_DIR = os.path.join(BASE_DIR, "saved_models")
+SAVE_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # Output files
