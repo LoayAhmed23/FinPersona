@@ -3,8 +3,9 @@ CLI entry point for the Recommendation System.
 
 Usage
 -----
-    python main.py train          # Train with default XGBoost params
-    python main.py score          # Score new data with a saved model
+    python main.py train                      # Train with default cleaned data dirs
+    python main.py train --prime-dir /path    # Train with custom cleaned data dir
+    python main.py score --prime-dir /path    # Score new cleaned data
 """
 
 import argparse
@@ -24,18 +25,18 @@ def main():
 
     # --- train ---
     train_parser = sub.add_parser("train", help="Run preprocessing and train the models")
-    train_parser.add_argument("--prime-dir", default="prime_cleaned", help="Directory with cleaned prime CSVs")
-    train_parser.add_argument("--txn-dir", default="transaction_cleaned", help="Directory with cleaned transaction CSVs")
+    train_parser.add_argument("--prime-dir", default=None, help="Directory with cleaned prime CSVs (default: config)")
+    train_parser.add_argument("--txn-dir", default=None, help="Directory with cleaned transaction CSVs (default: config)")
 
     # --- score ---
     score_parser = sub.add_parser("score", help="Score new data using saved models")
     score_parser.add_argument(
-        "--raw-prime-dir", required=True,
-        help="Directory with new raw prime CSVs",
+        "--prime-dir", required=True,
+        help="Directory with cleaned prime CSVs",
     )
     score_parser.add_argument(
-        "--raw-txn-dir", required=True,
-        help="Directory with new raw transaction Excel files",
+        "--txn-dir", default=None,
+        help="Directory with cleaned transaction CSVs (default: config)",
     )
     score_parser.add_argument(
         "--output", default=config.BATCH_OUTPUT_PATH,
@@ -79,8 +80,8 @@ def main():
         cbf_thresholds = cbf_meta["thresholds"]
         
         results_df, output_path, logs = predict_new_data(
-            raw_prime_dir=args.raw_prime_dir,
-            raw_transaction_dir=args.raw_txn_dir,
+            prime_dir=args.prime_dir,
+            transaction_dir=args.txn_dir,
             models_dict=models,
             optimal_thresholds=thresholds,
             trained_feature_cols=feature_cols,

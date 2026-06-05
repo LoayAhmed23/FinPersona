@@ -3,50 +3,31 @@ import glob
 import numpy as np
 import pandas as pd
 import config
-from data_loader import run_prestep, load_active_prime_data, load_matched_transaction_data, apply_cast_and_report
+from data_loader import load_prime_data, load_transaction_data
 from feature_engineering import (
     build_user_item_matrix, build_rfm_features, build_mcc_spend,
     build_foreign_trxn_features, build_demographics_features, merge_all_features
 )
 from preprocessing import preprocess_pipeline
-from model import train_xgboost, predict_for_customer, train_cbf, predict_cbf_for_customer
 
-def run_PREPROCESSING_pipeline(prime_dir, transaction_dir=None,
-                           raw_prime_dir=None, raw_transaction_dir=None, logs=None):
+
+def run_PREPROCESSING_pipeline(prime_dir=None, transaction_dir=None, logs=None):
     """
-    Runs the full Preprocessing pipeline from the given directory.
+    Runs the full Preprocessing pipeline.
 
-    If *raw_prime_dir* and *raw_transaction_dir* are supplied the prestep
-    (CUSTOMER_ID creation, active/historical splitting, transaction mapping)
-    is executed first, writing cleaned files into *prime_dir* and
-    *transaction_dir* respectively.
+    Reads already-cleaned prime and transaction CSVs from the given
+    directories (defaulting to the centralized paths in config).
 
     Returns (final_customer_profile DataFrame, logs list, product_cols list, feature_cols list).
     """
     if logs is None:
         logs = []
 
-    if transaction_dir is None:
-        transaction_dir = "transaction_cleaned"
+    # Phase 1: Load cleaned prime data
+    prime_df = load_prime_data(prime_dir, logs)
 
-    # ── Optional prestep ──
-    if raw_prime_dir and raw_transaction_dir:
-        logs.append("Running data-cleaning prestep...")
-        logs.append("")
-        run_prestep(
-            raw_prime_dir=raw_prime_dir,
-            raw_transaction_dir=raw_transaction_dir,
-            prime_output_dir=prime_dir,
-            transaction_output_dir=transaction_dir,
-            logs=logs
-        )
-        logs.append("")
-
-    # Phase 1: Consolidate Active Prime
-    prime_df = load_active_prime_data(prime_dir, logs)
-
-    # Phase 2: Consolidate Transactions
-    transaction_df = load_matched_transaction_data(transaction_dir, logs)
+    # Phase 2: Load cleaned transaction data
+    transaction_df = load_transaction_data(transaction_dir, logs)
 
     # User-item matrix
     prime_df, _ = build_user_item_matrix(prime_df, logs)
@@ -72,15 +53,18 @@ def run_PREPROCESSING_pipeline(prime_dir, transaction_dir=None,
     return final_customer_profile, logs, final_products, final_features
 
 
-def predict_new_data(raw_prime_dir, raw_transaction_dir,
+def predict_new_data(prime_dir, transaction_dir,
                      models_dict, optimal_thresholds,
                      trained_feature_cols, valid_targets,
                      sim_matrix=None, cbf_product_cols=None, cbf_thresholds=None,
                      logs=None, progress_callback=None):
     """
-    Processes new raw prime/transaction data, engineers the same features used
-    during training, and predicts products for every customer using the
+    Processes new cleaned prime/transaction data, engineers the same features
+    used during training, and predicts products for every customer using the
     already-trained XGBoost (and optionally CBF) models.
+
+    Unlike the old version, this assumes the data is already cleaned —
+    no prestep is run.
     """
     if logs is None:
         logs = []
@@ -91,66 +75,22 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     logs.append(" BATCH PREDICTION: Processing New Customer Data")
     logs.append("=" * 60)
 
-    # ── Temp output dirs for the prestep ──
-    prime_output = os.path.join(config.BASE_DIR, "new_prime_cleaned")
-    txn_output = os.path.join(config.BASE_DIR, "new_transaction_cleaned")
-
-    # ── 1. Run prestep ──
+    # ── 1. Load cleaned data ──
     logs.append("")
-    logs.append("Step 1/4: Running data-cleaning prestep on new files...")
+    logs.append("Step 1/3: Loading cleaned data...")
     progress_callback(15)
-    run_prestep(
-        raw_prime_dir=raw_prime_dir,
-        raw_transaction_dir=raw_transaction_dir,
-        prime_output_dir=prime_output,
-        transaction_output_dir=txn_output,
-        logs=logs
-    )
+
+    prime_df = load_prime_data(prime_dir, logs)
+    progress_callback(25)
+
+    transaction_df = load_transaction_data(transaction_dir, logs)
+    has_transactions = transaction_df is not None and len(transaction_df) > 0
     progress_callback(35)
-
-    # ── 2. Load & cast cleaned data ──
-    logs.append("")
-    logs.append("=" * 60)
-    logs.append(" Step 2/4: Feature Engineering")
-    logs.append("=" * 60)
-
-    # Load prime
-    prime_files = glob.glob(os.path.join(prime_output, "*_active.csv"))
-    if not prime_files:
-        raise FileNotFoundError(f"No active prime files in '{prime_output}'.")
-
-    prime_dfs = [pd.read_csv(f, encoding='latin', dtype=str) for f in prime_files]
-    prime_df = pd.concat(prime_dfs, ignore_index=True)
-    logs.append(f"Loaded {len(prime_df)} prime rows from {len(prime_files)} files.")
-
-    apply_cast_and_report(prime_df, config.PRIME_STRING_COLS, 'string', logs)
-    apply_cast_and_report(prime_df, config.PRIME_INT_COLS, 'int', logs)
-    apply_cast_and_report(prime_df, config.PRIME_FLOAT_COLS, 'float', logs)
-    apply_cast_and_report(prime_df, config.PRIME_DATE_COLS, 'date', logs)
-    progress_callback(45)
-
-    # Load transactions
-    all_txn_files = glob.glob(os.path.join(txn_output, "*.csv"))
-    txn_files = [f for f in all_txn_files if not f.endswith("_missing_id.csv")]
-
-    has_transactions = len(txn_files) > 0
-    if has_transactions:
-        txn_dfs = [pd.read_csv(f, encoding='latin', dtype=str) for f in txn_files]
-        transaction_df = pd.concat(txn_dfs, ignore_index=True)
-        logs.append(f"Loaded {len(transaction_df)} transaction rows from {len(txn_files)} files.")
-
-        apply_cast_and_report(transaction_df, config.TXN_STRING_COLS, 'string', logs)
-        apply_cast_and_report(transaction_df, config.TXN_INT_COLS, 'int', logs)
-        apply_cast_and_report(transaction_df, config.TXN_FLOAT_COLS, 'float', logs)
-        apply_cast_and_report(transaction_df, config.TXN_DATE_COLS, 'date', logs)
-    else:
-        logs.append("WARNING: No transaction files found. Transaction-based features will be zero.")
-        transaction_df = None
 
     # ── Drop unneeded columns ──
     from preprocessing import drop_unneeded_columns
     prime_df = drop_unneeded_columns(prime_df, prime_only=True)
-    if transaction_df is not None:
+    if has_transactions:
         transaction_df = drop_unneeded_columns(transaction_df, txn_only=True)
 
     prime_df["GENDER"] = prime_df["GENDER"].fillna("Unknown")
@@ -158,7 +98,12 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     # ── Preserve RIMNO → CUSTOMER_ID mapping before dedup ──
     rimno_map = prime_df[['CUSTOMER_ID', 'RIMNO']].drop_duplicates(subset=['CUSTOMER_ID'])
 
-    # ── Build features ──
+    # ── 2. Feature Engineering ──
+    logs.append("")
+    logs.append("=" * 60)
+    logs.append(" Step 2/3: Feature Engineering")
+    logs.append("=" * 60)
+
     prime_df, user_item_df = build_user_item_matrix(prime_df, logs)
     rfm_features = build_rfm_features(transaction_df)
     mcc_spend = build_mcc_spend(transaction_df)
@@ -185,7 +130,7 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     if prod_cols_new:
         profile = profile.drop(columns=prod_cols_new)
 
-    # Drop rows where CUSTOMER_ID is missing (unmapped during prestep)
+    # Drop rows where CUSTOMER_ID is missing
     na_count = profile['CUSTOMER_ID'].isna().sum()
     if na_count > 0:
         logs.append(f"  Dropping {na_count} rows with missing CUSTOMER_ID.")
@@ -196,10 +141,10 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     logs.append(f"Built feature profile for {len(profile)} customers.")
     progress_callback(60)
 
-    # ── 3. Align features with trained model ──
+    # ── 3. Align features with trained model & Predict ──
     logs.append("")
     logs.append("=" * 60)
-    logs.append(" Step 3/4: Aligning Features with Trained Model")
+    logs.append(" Step 3/3: Aligning Features & Running Predictions")
     logs.append("=" * 60)
 
     for col in trained_feature_cols:
@@ -213,12 +158,6 @@ def predict_new_data(raw_prime_dir, raw_transaction_dir,
     logs.append(f"  Matched from new data: {present}")
     logs.append(f"  Filled with zeros:     {len(trained_feature_cols) - present}")
     progress_callback(70)
-
-    # ── 4. Predict ──
-    logs.append("")
-    logs.append("=" * 60)
-    logs.append(" Step 4/4: Running Predictions")
-    logs.append("=" * 60)
 
     results = []
 

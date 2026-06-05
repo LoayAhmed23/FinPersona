@@ -10,23 +10,35 @@ Provides a premium web interface to:
 
 from flask import Flask, render_template, request, jsonify
 import os
+import sys
 import json
+import glob
 import pickle
 import threading
 import traceback
 import pandas as pd
 import numpy as np
 
+# Ensure the recommendation module directory is on sys.path so local imports work
+REC_DIR = os.path.dirname(os.path.abspath(__file__))
+if REC_DIR not in sys.path:
+    sys.path.insert(0, REC_DIR)
+
+# Also ensure the project root is on sys.path so data_cleaning can be imported
+PROJECT_ROOT = os.path.abspath(os.path.join(REC_DIR, "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+import config
+
 app = Flask(__name__)
 
-# ── Persistence paths ──
-SAVE_DIR = "saved_models"
-os.makedirs(SAVE_DIR, exist_ok=True)
-PREPROCESSED_CSV  = os.path.join(SAVE_DIR, "final_customer_profile.csv")
-XGB_MODELS_PKL = os.path.join(SAVE_DIR, "xgb_models.pkl")
-XGB_META_JSON  = os.path.join(SAVE_DIR, "xgb_meta.json")
-CBF_SIM_PKL    = os.path.join(SAVE_DIR, "cbf_sim_matrix.pkl")
-CBF_META_JSON  = os.path.join(SAVE_DIR, "cbf_meta.json")
+# ── Persistence paths (from config) ──
+PREPROCESSED_CSV  = config.PREPROCESSED_CSV
+XGB_MODELS_PKL = config.XGB_MODELS_PKL
+XGB_META_JSON  = config.XGB_META_JSON
+CBF_SIM_PKL    = config.CBF_SIM_PKL
+CBF_META_JSON  = config.CBF_META_JSON
 
 # ── Global state ──
 pipeline_state = {
@@ -73,7 +85,7 @@ def load_saved_state():
             pipeline_state["product_count"] = len(product_cols)
             pipeline_state["feature_count"] = len(feature_cols)
             pipeline_state["status"] = "PREPROCESSING_done"
-            pipeline_state["PREPROCESSING_logs"] = ["[Loaded from cache] Preprocessed data restored from saved_models/"]
+            pipeline_state["PREPROCESSING_logs"] = ["[Loaded from cache] Preprocessed data restored."]
             pipeline_state["progress_pct"] = 100
             print(f"[Startup] Loaded Preprocessed CSV ({len(df)} customers)")
         except Exception as e:
@@ -92,7 +104,7 @@ def load_saved_state():
             pipeline_state["valid_targets"] = meta["valid_targets"]
             pipeline_state["metrics"] = meta.get("metrics")
             pipeline_state["status"] = "trained"
-            pipeline_state["training_logs"] = ["[Loaded from cache] XGBoost models restored from saved_models/"]
+            pipeline_state["training_logs"] = ["[Loaded from cache] XGBoost models restored."]
             print(f"[Startup] Loaded XGBoost models ({len(models)} products)")
         except Exception as e:
             print(f"[Startup] Failed to load XGBoost models: {e}")
@@ -109,7 +121,7 @@ def load_saved_state():
             pipeline_state["cbf_thresholds"] = cbf_meta["thresholds"]
             pipeline_state["cbf_metrics"] = cbf_meta.get("metrics")
             pipeline_state["cbf_status"] = "cbf_trained"
-            pipeline_state["cbf_logs"] = ["[Loaded from cache] CBF model restored from saved_models/"]
+            pipeline_state["cbf_logs"] = ["[Loaded from cache] CBF model restored."]
             pipeline_state["cbf_progress_pct"] = 100
             print(f"[Startup] Loaded CBF model")
         except Exception as e:
@@ -151,6 +163,81 @@ def api_status():
     })
 
 
+# ── Data-cleaning helper ──
+
+def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
+    """Check for cleaned data directories; run cleaning pipelines if missing.
+
+    Accepts either the *raw* directory (e.g. ``data/prime``) **or** the
+    *cleaned* directory (``data/prime_cleaned``) — the function normalises
+    both to the same ``(raw, cleaned)`` pair.
+
+    When no directory is provided (None), the function checks the *default*
+    cleaned directories from ``config``.  If those are empty/missing it runs
+    the cleaning pipelines using the default raw data directories.
+
+    Returns
+    -------
+    (prime_cleaned_dir, txn_cleaned_dir)
+    """
+    def _log(msg):
+        if log_fn:
+            log_fn(msg)
+        print(msg)
+
+    def _resolve_raw_and_cleaned(user_dir, default_raw, default_cleaned):
+        """Return (raw_dir, cleaned_dir) from whatever the user gave us."""
+        if user_dir:
+            base = user_dir.rstrip("/\\")
+            if base.endswith("_cleaned"):
+                base = base[: -len("_cleaned")]
+            return base, base + "_cleaned"
+        else:
+            return default_raw, default_cleaned
+
+    # ── Prime ──
+    raw_prime, prime_cleaned = _resolve_raw_and_cleaned(
+        prime_dir, config.RAW_PRIME_DATA_DIR, config.PRIME_DATA_DIR,
+    )
+
+    has_prime = (
+        os.path.isdir(prime_cleaned)
+        and glob.glob(os.path.join(prime_cleaned, "*_active.csv"))
+    )
+    if not has_prime:
+        _log(f"[AUTO-CLEAN] '{prime_cleaned}' not found or empty — running prime cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_prime}")
+        from data_cleaning.prime_id_creation import run as run_prime_cleaning
+        run_prime_cleaning(input_dir=raw_prime, output_dir=prime_cleaned)
+        _log(f"[AUTO-CLEAN] Prime cleaning complete -> {prime_cleaned}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned prime data at '{prime_cleaned}' — skipping.")
+
+    # ── Transaction ──
+    raw_txn, txn_cleaned = _resolve_raw_and_cleaned(
+        txn_dir, config.RAW_TRANSACTION_DATA_DIR, config.TRANSACTION_DATA_DIR,
+    )
+
+    has_txn = (
+        os.path.isdir(txn_cleaned)
+        and glob.glob(os.path.join(txn_cleaned, "*.csv"))
+    )
+    if not has_txn:
+        _log(f"[AUTO-CLEAN] '{txn_cleaned}' not found or empty — running transaction cleaning pipeline ...")
+        _log(f"[AUTO-CLEAN]   raw dir -> {raw_txn}")
+        from data_cleaning.transaction_id_mapping import run as run_txn_cleaning
+        run_txn_cleaning(
+            prime_cleaned_dir=prime_cleaned,
+            transaction_input_dir=raw_txn,
+            transaction_output_dir=txn_cleaned,
+        )
+        _log(f"[AUTO-CLEAN] Transaction cleaning complete -> {txn_cleaned}")
+    else:
+        _log(f"[AUTO-CLEAN] Found existing cleaned transaction data at '{txn_cleaned}' — skipping.")
+
+    return prime_cleaned, txn_cleaned
+
+
 @app.route("/api/browse_directory")
 def api_browse_directory():
     """Opens a native OS folder picker and returns the selected path."""
@@ -171,27 +258,14 @@ def api_run_PREPROCESSING():
     if pipeline_state["status"] not in ("idle", "PREPROCESSING_done", "trained", "error"):
         return jsonify({"error": "Pipeline is already running."}), 400
 
-    data = request.json
-    prime_dir = data.get("prime_dir", "").strip()
+    data = request.json or {}
+    prime_dir = data.get("prime_dir", "").strip() or None
     transaction_dir = data.get("transaction_dir", "").strip() or None
-    raw_prime_dir = data.get("raw_prime_dir", "").strip() or None
-    raw_transaction_dir = data.get("raw_transaction_dir", "").strip() or None
-
-    if not prime_dir:
-        return jsonify({"error": "Please provide a prime data directory."}), 400
-
-    import os
-    import config
-    if not os.path.isabs(prime_dir):
-        prime_dir = os.path.join(config.BASE_DIR, prime_dir)
-    if transaction_dir and not os.path.isabs(transaction_dir):
-        transaction_dir = os.path.join(config.BASE_DIR, transaction_dir)
 
     # Reset state
     pipeline_state.update({
         "status": "running_PREPROCESSING",
         "PREPROCESSING_logs": [],
-        "prestep_logs": [],
         "training_logs": [],
         "metrics": None,
         "error": None,
@@ -208,13 +282,21 @@ def api_run_PREPROCESSING():
 
     def _run():
         try:
+            logs = pipeline_state["PREPROCESSING_logs"]
+
+            # ── Auto-clean raw directories if needed ──
+            logs.append("[PRE-CHECK] Verifying cleaned data directories ...")
+            pipeline_state["progress_pct"] = 15
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
+                prime_dir, transaction_dir,
+                log_fn=lambda msg: logs.append(msg),
+            )
+
             from pipeline import run_PREPROCESSING_pipeline
             pipeline_state["progress_pct"] = 20
             df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(
-                prime_dir, transaction_dir,
-                raw_prime_dir=raw_prime_dir,
-                raw_transaction_dir=raw_transaction_dir,
-                logs=pipeline_state["PREPROCESSING_logs"]
+                prime_cleaned, txn_cleaned,
+                logs=logs
             )
             pipeline_state["df"] = df
             pipeline_state["PREPROCESSING_logs"] = logs
@@ -283,7 +365,7 @@ def api_train():
             }
             with open(XGB_META_JSON, "w") as f:
                 json.dump(meta, f)
-            logs.append(f"[Saved] XGBoost models cached to {SAVE_DIR}/")
+            logs.append(f"[Saved] XGBoost models cached to {config.OUTPUT_DIR}/")
         except Exception as e:
             err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
             pipeline_state["training_logs"].append(err_msg)
@@ -337,7 +419,7 @@ def api_train_cbf():
             }
             with open(CBF_META_JSON, "w") as f:
                 json.dump(cbf_meta, f)
-            cbf_logs.append(f"[Saved] CBF model cached to {SAVE_DIR}/")
+            cbf_logs.append(f"[Saved] CBF model cached to {config.OUTPUT_DIR}/")
         except Exception as e:
             err_msg = f"CRITICAL ERROR: {str(e)}\n\n{traceback.format_exc()}"
             pipeline_state["cbf_logs"].append(err_msg)
@@ -445,18 +527,19 @@ def api_customers():
 
 @app.route("/api/predict_batch", methods=["POST"])
 def api_predict_batch():
-    """Run batch prediction on new customer data."""
+    """Run batch prediction on new customer data.
+
+    Accepts cleaned *or* raw directories — _ensure_cleaned_dirs will
+    auto-run the cleaning pipeline if needed.
+    """
     if pipeline_state["models"] is None:
         return jsonify({"error": "XGBoost models not trained yet. Complete training first."}), 400
     if pipeline_state["batch_status"] == "running_batch":
         return jsonify({"error": "Batch prediction is already running."}), 400
 
-    data = request.json
-    raw_prime_dir = data.get("raw_prime_dir", "").strip()
-    raw_transaction_dir = data.get("raw_transaction_dir", "").strip()
-
-    if not raw_prime_dir or not raw_transaction_dir:
-        return jsonify({"error": "Please provide both raw prime and transaction directories."}), 400
+    data = request.json or {}
+    prime_dir = data.get("prime_dir", "").strip() or None
+    transaction_dir = data.get("transaction_dir", "").strip() or None
 
     pipeline_state.update({
         "batch_status": "running_batch",
@@ -469,17 +552,24 @@ def api_predict_batch():
 
     def _run_batch():
         try:
-            from pipeline import predict_new_data
-            pipeline_state["batch_progress_pct"] = 10
-
-            # Shared logs list — predict_new_data appends to it live
             live_logs = pipeline_state["batch_logs"]
+
+            # ── Auto-clean raw directories if needed ──
+            live_logs.append("[PRE-CHECK] Verifying cleaned data directories ...")
+            pipeline_state["batch_progress_pct"] = 10
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
+                prime_dir, transaction_dir,
+                log_fn=lambda msg: live_logs.append(msg),
+            )
+
+            from pipeline import predict_new_data
+
             def _progress(pct):
                 pipeline_state["batch_progress_pct"] = pct
 
             results_df, output_path, logs = predict_new_data(
-                raw_prime_dir=raw_prime_dir,
-                raw_transaction_dir=raw_transaction_dir,
+                prime_dir=prime_cleaned,
+                transaction_dir=txn_cleaned,
                 models_dict=pipeline_state["models"],
                 optimal_thresholds=pipeline_state["thresholds"],
                 trained_feature_cols=pipeline_state["feature_cols"],
@@ -487,7 +577,7 @@ def api_predict_batch():
                 sim_matrix=pipeline_state.get("cbf_sim_matrix"),
                 cbf_product_cols=pipeline_state.get("cbf_product_cols"),
                 cbf_thresholds=pipeline_state.get("cbf_thresholds"),
-                logs=pipeline_state["batch_logs"],
+                logs=live_logs,
                 progress_callback=_progress,
             )
 

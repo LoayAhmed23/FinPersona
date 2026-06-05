@@ -11,19 +11,32 @@ import os
 # Paths
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SAVE_DIR = os.path.join(BASE_DIR, "models")
-os.makedirs(SAVE_DIR, exist_ok=True)
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
-# Output files
-PREPROCESSED_CSV = os.path.join(SAVE_DIR, "final_customer_profile.csv")
-XGB_MODELS_PKL = os.path.join(SAVE_DIR, "xgb_models.pkl")
-XGB_META_JSON = os.path.join(SAVE_DIR, "xgb_meta.json")
-CBF_SIM_PKL = os.path.join(SAVE_DIR, "cbf_sim_matrix.pkl")
-CBF_META_JSON = os.path.join(SAVE_DIR, "cbf_meta.json")
-BATCH_OUTPUT_PATH = os.path.join(SAVE_DIR, "batch_predictions.csv")
+# Data directories
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+RAW_PRIME_DATA_DIR = os.path.join(DATA_DIR, "prime")
+RAW_TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction")
+PRIME_DATA_DIR = os.path.join(DATA_DIR, "prime_cleaned")
+TRANSACTION_DATA_DIR = os.path.join(DATA_DIR, "transaction_cleaned")
+
+# Output directories
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "models")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+ENGINEERED_FEATURES_DIR = os.path.join(DATA_DIR, "engineered_recommendation_features")
+os.makedirs(ENGINEERED_FEATURES_DIR, exist_ok=True)
+
+# Output files — models in root/models with recommendation_ prefix
+PREPROCESSED_CSV = os.path.join(ENGINEERED_FEATURES_DIR, "final_customer_profile.csv")
+XGB_MODELS_PKL = os.path.join(OUTPUT_DIR, "recommendation_xgb_models.pkl")
+XGB_META_JSON = os.path.join(OUTPUT_DIR, "recommendation_xgb_meta.json")
+CBF_SIM_PKL = os.path.join(OUTPUT_DIR, "recommendation_cbf_sim_matrix.pkl")
+CBF_META_JSON = os.path.join(OUTPUT_DIR, "recommendation_cbf_meta.json")
+BATCH_OUTPUT_PATH = os.path.join(OUTPUT_DIR, "recommendation_batch_predictions.csv")
 
 # ---------------------------------------------------------------------------
-# Column Definitions (Prime)
+# Column Definitions (Prime — for reading already-cleaned CSVs)
 # ---------------------------------------------------------------------------
 PRIME_STRING_COLS = [
     "BRANCH_NAME", "ACTIVATED", "STATUS", "STATUS_NAME",
@@ -38,7 +51,7 @@ PRIME_FLOAT_COLS = [
 PRIME_DATE_COLS = ["CREATION_DATE", "LAST_STATEMENT_DATE", "DOB", "CLOSURE_DATE", "LAST_PAYMENT_DATE"]
 
 # ---------------------------------------------------------------------------
-# Column Definitions (Transaction)
+# Column Definitions (Transaction — for reading already-cleaned CSVs)
 # ---------------------------------------------------------------------------
 TXN_STRING_COLS = [
     "MERCHNAME", "MERCH ID", "SOURCES", "BANKBRANCH",
