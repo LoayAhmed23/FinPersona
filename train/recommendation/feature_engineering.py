@@ -25,7 +25,9 @@ def build_user_item_matrix(prime_df, logs):
     return prime_df, user_item_df
 
 
-def build_rfm_features(transaction_df):  # Extracts Recency, Frequency, Monetary features from transactions.
+def build_rfm_features(
+    transaction_df,
+):  # Extracts Recency, Frequency, Monetary features from transactions.
     if transaction_df is None or len(transaction_df) == 0:
         return pd.DataFrame(
             columns=[

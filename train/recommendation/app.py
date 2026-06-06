@@ -7,7 +7,6 @@ import threading
 import traceback
 
 import config
-import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
@@ -286,7 +285,9 @@ def api_run_PREPROCESSING():
             from pipeline import run_PREPROCESSING_pipeline
 
             pipeline_state["progress_pct"] = 20
-            df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(prime_cleaned, txn_cleaned, logs=logs)
+            df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(
+                prime_cleaned, txn_cleaned, logs=logs
+            )
             pipeline_state["df"] = df
             pipeline_state["PREPROCESSING_logs"] = logs
             pipeline_state["customer_count"] = len(df)
@@ -345,7 +346,7 @@ def api_train():
             pipeline_state["status"] = "trained"
             pipeline_state["progress_pct"] = 100
 
-            with open(XGB_MODELS_PKL, "wb") as f: # save model
+            with open(XGB_MODELS_PKL, "wb") as f:  # save model
                 pickle.dump(models, f)
             meta = {
                 "thresholds": thresholds,

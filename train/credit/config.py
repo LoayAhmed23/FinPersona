@@ -4,6 +4,8 @@ Central configuration for the Credit Risk Module.
 
 import os
 
+from scipy.stats import loguniform, randint, uniform
+
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
@@ -179,8 +181,6 @@ N_GPUS = 2
 # Recall is more important than precision for default prediction
 FBETA_VALUE = 1.5
 
-# XGBoost hyperparameters for tuning — expanded search space
-from scipy.stats import loguniform, randint, uniform
 
 TUNE_PARAM_GRID = {
     # ---- Tree structure ----
