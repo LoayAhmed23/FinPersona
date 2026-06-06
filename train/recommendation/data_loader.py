@@ -5,7 +5,6 @@ import config
 import pandas as pd
 
 
-
 def _parse_float_col(series: pd.Series) -> pd.Series:
     return pd.to_numeric(
         series.astype(str).str.replace(",", "", regex=False),
@@ -18,7 +17,6 @@ def _parse_int_col(series: pd.Series) -> pd.Series:
         series.astype(str).str.replace(",", "", regex=False),
         errors="coerce",
     ).astype("Int64")
-
 
 
 def load_prime_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:

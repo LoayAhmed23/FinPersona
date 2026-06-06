@@ -1,6 +1,5 @@
 import os
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
@@ -31,7 +30,7 @@ BATCH_OUTPUT_PATH = os.path.join(
 )
 
 
-# Data 
+# Data
 PRIME_STRING_COLS = [
     "BRANCH_NAME",
     "ACTIVATED",
