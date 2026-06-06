@@ -8,30 +8,30 @@ MODEL COMPARISON
 Logistic Regression       1.0        1.0     1.0  1.0      1.0
 Decision Tree             1.0        1.0     1.0  1.0      1.0
 Random Forest             1.0        1.0     1.0  1.0      1.0
-LightGBM                  1.0        1.0     1.0  1.0      1.0
 XGBoost                   1.0        1.0     1.0  1.0      1.0
+LightGBM                  1.0        1.0     1.0  1.0      1.0
 
 
 BEST MODEL: Logistic Regression
 ----------------------------------------
 
 CLASS DISTRIBUTION (test set)
-  Retained (0):     198  (93.8%)
-  Churned  (1):      13  (6.2%)
+  Retained (0):     200  (93.9%)
+  Churned  (1):      13  (6.1%)
 
 CONFUSION MATRIX
-  TN=    198   FP=      0
+  TN=    200   FP=      0
   FN=      0   TP=     13
 
 CLASSIFICATION REPORT
 ----------------------------------------
               precision    recall  f1-score   support
 
-    Retained       1.00      1.00      1.00       198
+    Retained       1.00      1.00      1.00       200
      Churned       1.00      1.00      1.00        13
 
-    accuracy                           1.00       211
-   macro avg       1.00      1.00      1.00       211
-weighted avg       1.00      1.00      1.00       211
+    accuracy                           1.00       213
+   macro avg       1.00      1.00      1.00       213
+weighted avg       1.00      1.00      1.00       213
 
 ============================================================

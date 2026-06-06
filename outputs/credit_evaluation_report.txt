@@ -4,18 +4,18 @@ CREDIT RISK MODEL — EVALUATION REPORT
 
 METRICS
 ----------------------------------------
-  Threshold   : 0.7234
-  AUC         : 1.0000
-  KS          : 1.0000
-  F1          : 1.0000
-  Recall      : 1.0000
+  Threshold   : 0.9170
+  AUC         : 0.9976
+  KS          : 0.9937
+  F1          : 0.9968
+  Recall      : 0.9937
   Precision   : 1.0000
-  Accuracy    : 1.0000
+  Accuracy    : 0.9988
 
 MODEL PARAMETERS
 ----------------------------------------
-  best_iteration                : 0
-  best_threshold                : 0.7233999967575073
+  best_iteration                : 24
+  best_threshold                : 0.9169999957084656
   colsample_bytree              : 0.8
   device                        : cuda
   early_stopping_rounds         : 50
@@ -34,23 +34,23 @@ MODEL PARAMETERS
 
 CLASS DISTRIBUTION (test set)
 ----------------------------------------
-  Non-default (0):     607  (79.3%)
-  Default     (1):     158  (20.7%)
+  Non-default (0):     710  (81.8%)
+  Default     (1):     158  (18.2%)
 
 CONFUSION MATRIX
 ----------------------------------------
-  TN=    607   FP=      0
-  FN=      0   TP=    158
+  TN=    710   FP=      0
+  FN=      1   TP=    157
 
 CLASSIFICATION REPORT
 ----------------------------------------
               precision    recall  f1-score   support
 
- Non-default       1.00      1.00      1.00       607
-     Default       1.00      1.00      1.00       158
+ Non-default       1.00      1.00      1.00       710
+     Default       1.00      0.99      1.00       158
 
-    accuracy                           1.00       765
-   macro avg       1.00      1.00      1.00       765
-weighted avg       1.00      1.00      1.00       765
+    accuracy                           1.00       868
+   macro avg       1.00      1.00      1.00       868
+weighted avg       1.00      1.00      1.00       868
 
 ============================================================
