@@ -190,11 +190,11 @@ def train_cbf(df, logs=None):
 
     logs.append(f"Train/Test masking: {users_with_test} users have masked items.")
 
-    #Build similarity on TRAIN data only
+    # Build similarity on TRAIN data only
     sim_array = cosine_similarity(train_matrix.T)
     sim_matrix = pd.DataFrame(sim_array, index=product_cols, columns=product_cols)
 
-    #compute score matrix (users × products) via matrix multiply
+    # compute score matrix (users × products) via matrix multiply
     train_np = train_matrix.values  # (n_users, n_products)
     sim_np = sim_matrix.values  # (n_products, n_products)
     score_matrix = train_np @ sim_np  # (n_users, n_products)

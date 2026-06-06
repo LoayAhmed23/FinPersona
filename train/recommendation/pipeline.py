@@ -84,7 +84,7 @@ def predict_new_data(
 
     prime_df["GENDER"] = prime_df["GENDER"].fillna("Unknown")
 
-    # Preserve RIMNO -> CUSTOMER_ID mapping before dedup 
+    # Preserve RIMNO -> CUSTOMER_ID mapping before dedup  
     rimno_map = prime_df[["CUSTOMER_ID", "RIMNO"]].drop_duplicates(
         subset=["CUSTOMER_ID"]
     )
@@ -120,7 +120,7 @@ def predict_new_data(
     profile = profile.drop(columns=existing_drop)
     profile = profile.drop(columns=["BRANCH_ID"], errors="ignore")
 
-    # Drop any HAS_PROD_ columns 
+    # Drop any HAS_PROD_ columns  
     prod_cols_new = [c for c in profile.columns if c.startswith("HAS_PROD_")]
     if prod_cols_new:
         profile = profile.drop(columns=prod_cols_new)
