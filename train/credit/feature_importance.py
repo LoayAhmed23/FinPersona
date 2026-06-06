@@ -67,7 +67,6 @@ def plot_feature_importance():
                 by="Importance (Weight)", ascending=False
             ).head(30)
 
-
             plt.figure(figsize=(12, 12))
             sns.barplot(
                 x="Importance (Gain)",
