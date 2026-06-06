@@ -817,10 +817,200 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* ── Error Toast Overlay ── */
+        .fp-error-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(6px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .fp-error-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .fp-error-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 0;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(220, 38, 38, 0.08);
+            transform: translateY(20px) scale(0.97);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        .fp-error-overlay.visible .fp-error-card {
+            transform: translateY(0) scale(1);
+        }
+
+        .fp-error-accent {
+            height: 4px;
+            background: linear-gradient(90deg, var(--red), #f87171, var(--orange));
+        }
+
+        .fp-error-accent.csv-accent {
+            background: linear-gradient(90deg, var(--orange), #f59e0b, var(--gold));
+        }
+
+        .fp-error-body {
+            padding: 1.75rem 2rem 1.5rem;
+        }
+
+        .fp-error-icon-row {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .fp-error-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            background: var(--red-dim);
+        }
+
+        .fp-error-icon.csv-icon {
+            background: var(--orange-dim);
+        }
+
+        .fp-error-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.3;
+        }
+
+        .fp-error-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            font-weight: 500;
+            margin-top: 0.1rem;
+        }
+
+        .fp-error-message {
+            background: var(--bg-card-hover);
+            border: 1px solid var(--border);
+            border-radius: 0.55rem;
+            padding: 0.85rem 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+            word-break: break-word;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .fp-error-hint {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            margin-top: 1rem;
+            padding: 0.75rem 0.85rem;
+            border-radius: 0.5rem;
+            background: var(--gold-dim);
+            border: 1px solid rgba(181, 141, 30, 0.15);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        .fp-error-hint-icon {
+            flex-shrink: 0;
+            font-size: 1rem;
+            margin-top: 0.05rem;
+        }
+
+        .fp-error-footer {
+            padding: 0 2rem 1.5rem;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .fp-error-dismiss {
+            background: linear-gradient(135deg, var(--red), #ef4444);
+            color: #fff;
+            border: none;
+            padding: 0.55rem 1.4rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .fp-error-dismiss:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+        }
+
+        .fp-error-dismiss.csv-dismiss {
+            background: linear-gradient(135deg, var(--orange), #d97706);
+        }
+
+        .fp-error-dismiss.csv-dismiss:hover {
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        .fp-error-overlay.visible .fp-error-card.shake {
+            animation: shake 0.45s ease-in-out;
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- ═══════════ ERROR OVERLAY ═══════════ -->
+    <div class="fp-error-overlay" id="fpErrorOverlay" onclick="if(event.target===this)dismissError()">
+        <div class="fp-error-card" id="fpErrorCard">
+            <div class="fp-error-accent" id="fpErrorAccent"></div>
+            <div class="fp-error-body">
+                <div class="fp-error-icon-row">
+                    <div class="fp-error-icon" id="fpErrorIcon">⚠️</div>
+                    <div>
+                        <div class="fp-error-title" id="fpErrorTitle">Something went wrong</div>
+                        <div class="fp-error-subtitle" id="fpErrorSubtitle">Pipeline Error</div>
+                    </div>
+                </div>
+                <div class="fp-error-message" id="fpErrorMessage"></div>
+                <div class="fp-error-hint" id="fpErrorHint" style="display:none;">
+                    <span class="fp-error-hint-icon">💡</span>
+                    <span id="fpErrorHintText"></span>
+                </div>
+            </div>
+            <div class="fp-error-footer">
+                <button class="fp-error-dismiss" id="fpErrorDismissBtn" onclick="dismissError()">Dismiss</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ═══════════ SIDEBAR ═══════════ -->
     <aside class="sidebar">
@@ -1524,6 +1714,59 @@
             recommend: 'Product Recommendation',
         };
 
+        /* ── Pretty Error Overlay ── */
+        function showError(msg, module) {
+            const overlay = document.getElementById('fpErrorOverlay');
+            const card    = document.getElementById('fpErrorCard');
+            const accent  = document.getElementById('fpErrorAccent');
+            const icon    = document.getElementById('fpErrorIcon');
+            const title   = document.getElementById('fpErrorTitle');
+            const sub     = document.getElementById('fpErrorSubtitle');
+            const body    = document.getElementById('fpErrorMessage');
+            const hint    = document.getElementById('fpErrorHint');
+            const hintTxt = document.getElementById('fpErrorHintText');
+            const dismiss = document.getElementById('fpErrorDismissBtn');
+
+            const msgStr = String(msg || 'An unknown error occurred.');
+            const isCsv  = /no csv files/i.test(msgStr);
+
+            // Reset classes
+            accent.className  = 'fp-error-accent'  + (isCsv ? ' csv-accent'  : '');
+            icon.className    = 'fp-error-icon'    + (isCsv ? ' csv-icon'    : '');
+            dismiss.className = 'fp-error-dismiss'  + (isCsv ? ' csv-dismiss' : '');
+
+            if (isCsv) {
+                icon.textContent  = '📂';
+                title.textContent = 'No CSV Files Found';
+                sub.textContent   = (module || 'Pipeline') + ' — Data Directory Error';
+                hint.style.display = 'flex';
+                hintTxt.textContent = 'Make sure the selected directory contains .csv files and the path is correct. If left blank, the default data directory is used.';
+            } else {
+                icon.textContent  = '⚠️';
+                title.textContent = 'Something Went Wrong';
+                sub.textContent   = (module || 'Pipeline') + ' Error';
+                hint.style.display = 'none';
+            }
+
+            body.textContent = msgStr;
+
+            // Animate in
+            card.classList.remove('shake');
+            void card.offsetWidth; // force reflow
+            card.classList.add('shake');
+            overlay.classList.add('visible');
+
+            // Allow Escape to dismiss
+            document.addEventListener('keydown', _escDismiss);
+        }
+
+        function dismissError() {
+            document.getElementById('fpErrorOverlay').classList.remove('visible');
+            document.removeEventListener('keydown', _escDismiss);
+        }
+
+        function _escDismiss(e) { if (e.key === 'Escape') dismissError(); }
+
         let activeTab = 'credit';
 
         function switchTab(tab) {
@@ -1552,7 +1795,7 @@
                 const res = await fetch('/api/browse', { method: 'POST' });
                 const data = await res.json();
                 if (data.path) document.getElementById(inputId).value = data.path;
-            } catch (e) { alert('Browse failed.'); }
+            } catch (e) { showError('Could not open the folder browser. Please try again.', 'Browse'); }
             finally { btn.disabled = false; btn.textContent = 'Browse'; }
         }
 
@@ -1592,7 +1835,7 @@
                 clearInterval(cr_poll);
                 showLog('cr_logTrain', data.training_logs);
                 showLog('cr_logScore', data.scoring_logs);
-                alert('Credit Error: ' + (data.error || 'Unknown'));
+                showError(data.error || 'Unknown error during training.', 'Credit Risk');
                 cr_resetButtons();
                 return;
             }
@@ -1679,7 +1922,7 @@
                 if (txnDir) payload.txn_dir = txnDir;
                 await fetch('/credit/api/train', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 cr_startPolling();
-            } catch (e) { alert('Request failed.'); cr_resetButtons(); }
+            } catch (e) { showError('Could not reach the Credit Risk server. Is it running?', 'Credit Risk'); cr_resetButtons(); }
         }
 
         async function cr_runScoring() {
@@ -1695,7 +1938,7 @@
                 if (txnDir) payload.txn_dir = txnDir;
                 await fetch('/credit/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 cr_startPolling();
-            } catch (e) { alert('Scoring failed.'); cr_resetButtons(); }
+            } catch (e) { showError('Could not reach the Credit Risk server for scoring. Is it running?', 'Credit Risk'); cr_resetButtons(); }
         }
 
         async function cr_runLookup() {
@@ -1709,7 +1952,7 @@
                 const res = await fetch('/credit/api/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rimno }) });
                 const data = await res.json();
                 cr_resetButtons();
-                if (data.error) { alert(data.error); return; }
+                if (data.error) { showError(data.error, 'Credit Risk'); return; }
 
                 document.getElementById('cr_riskResult').style.display = 'block';
                 document.getElementById('cr_resRimno').innerText = data.rimno;
@@ -1722,7 +1965,7 @@
                 bar.style.width = data.default_probability + '%';
                 bar.style.background = data.default_probability >= 70 ? 'var(--red)' : data.default_probability >= 40 ? 'var(--orange)' : data.default_probability >= 20 ? 'var(--gold)' : 'var(--green)';
                 document.getElementById('cr_resLabel').style.color = data.predicted_label === 1 ? 'var(--red)' : 'var(--green)';
-            } catch (e) { alert('Lookup failed.'); cr_resetButtons(); }
+            } catch (e) { showError('Customer lookup request failed.', 'Credit Risk'); cr_resetButtons(); }
         }
 
         let cr_searchTimeout;
@@ -1769,7 +2012,7 @@
             if (data.status === 'error') {
                 clearInterval(ch_poll);
                 showLog('ch_logTrain', data.training_logs);
-                alert('Churn Error: ' + (data.error || 'Unknown'));
+                showError(data.error || 'Unknown error during training.', 'Churn Prediction');
                 ch_resetButtons();
                 return;
             }
@@ -1838,7 +2081,7 @@
                 if (txnDir) payload.txn_dir = txnDir;
                 await fetch('/churn/api/train', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 ch_startPolling();
-            } catch (e) { alert('Request failed.'); ch_resetButtons(); }
+            } catch (e) { showError('Could not reach the Churn server. Is it running?', 'Churn Prediction'); ch_resetButtons(); }
         }
 
         async function ch_runLookup() {
@@ -1852,7 +2095,7 @@
                 const res = await fetch('/churn/api/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id: cid }) });
                 const data = await res.json();
                 ch_resetButtons();
-                if (data.error) { alert(data.error); return; }
+                if (data.error) { showError(data.error, 'Churn Prediction'); return; }
 
                 document.getElementById('ch_riskResult').style.display = 'block';
                 document.getElementById('ch_resCustId').innerText = data.customer_id;
@@ -1863,7 +2106,7 @@
                 bar.style.width = data.churn_probability + '%';
                 bar.style.background = data.churn_probability >= 70 ? 'var(--red)' : data.churn_probability >= 40 ? 'var(--orange)' : data.churn_probability >= 20 ? 'var(--cyan)' : 'var(--green)';
                 document.getElementById('ch_resLabel').style.color = data.predicted_churn === 1 ? 'var(--red)' : 'var(--green)';
-            } catch (e) { alert('Lookup failed.'); ch_resetButtons(); }
+            } catch (e) { showError('Customer lookup request failed.', 'Churn Prediction'); ch_resetButtons(); }
         }
 
         let ch_searchTimeout;
@@ -1913,7 +2156,7 @@
                 showLog('rc_logTrain', data.training_logs);
                 showLog('rc_logCbf', data.cbf_logs);
                 showLog('rc_logBatch', data.batch_logs);
-                alert('Recommendation Error: ' + (data.error || 'Unknown'));
+                showError(data.error || 'Unknown error occurred.', 'Recommendation');
                 rc_resetButtons();
                 return;
             }
@@ -2023,7 +2266,7 @@
                 if (txnDir) payload.transaction_dir = txnDir;
                 await fetch('/recommend/api/run_PREPROCESSING', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 rc_startPolling();
-            } catch (e) { alert('Request failed.'); rc_resetButtons(); }
+            } catch (e) { showError('Could not reach the Recommendation server. Is it running?', 'Recommendation'); rc_resetButtons(); }
         }
 
         async function rc_runTraining() {
@@ -2032,7 +2275,7 @@
             try {
                 await fetch('/recommend/api/train', { method: 'POST' });
                 rc_startPolling();
-            } catch (e) { alert('Request failed.'); rc_resetButtons(); }
+            } catch (e) { showError('Could not reach the Recommendation server for training. Is it running?', 'Recommendation'); rc_resetButtons(); }
         }
 
         async function rc_runCbfTraining() {
@@ -2041,7 +2284,7 @@
             try {
                 await fetch('/recommend/api/train_cbf', { method: 'POST' });
                 rc_startPolling();
-            } catch (e) { alert('Request failed.'); rc_resetButtons(); }
+            } catch (e) { showError('Could not reach the Recommendation server for CBF training. Is it running?', 'Recommendation'); rc_resetButtons(); }
         }
 
         async function rc_runPrediction() {
@@ -2059,7 +2302,7 @@
 
                 const xgbData = await xgbRes.json();
                 rc_resetButtons();
-                if (xgbData.error) { alert(xgbData.error); return; }
+                if (xgbData.error) { showError(xgbData.error, 'Recommendation'); return; }
 
                 document.getElementById('rc_predContainer').style.display = 'block';
                 document.getElementById('rc_resCustId').innerText = xgbData.customer_id;
@@ -2079,13 +2322,13 @@
                         ).join('');
                     }
                 }
-            } catch (e) { alert('Prediction failed.'); rc_resetButtons(); }
+            } catch (e) { showError('Prediction request failed.', 'Recommendation'); rc_resetButtons(); }
         }
 
         async function rc_runBatch() {
             const prime = document.getElementById('rc_batchPrimeDir').value.trim();
             const txn = document.getElementById('rc_batchTxnDir').value.trim();
-            if (!prime) { alert('Please provide a cleaned prime directory.'); return; }
+            if (!prime) { showError('Please provide a cleaned prime directory path before running batch prediction.', 'Recommendation'); return; }
 
             document.getElementById('rc_btnBatch').disabled = true;
             document.getElementById('rc_spinBatch').style.display = 'block';
@@ -2095,7 +2338,7 @@
                 if (txn) payload.transaction_dir = txn;
                 await fetch('/recommend/api/predict_batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 rc_startPolling();
-            } catch (e) { alert('Request failed.'); rc_resetButtons(); }
+            } catch (e) { showError('Could not reach the Recommendation server for batch prediction. Is it running?', 'Recommendation'); rc_resetButtons(); }
         }
 
         let rc_searchTimeout;
