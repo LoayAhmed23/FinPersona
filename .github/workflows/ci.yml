@@ -2,7 +2,7 @@
 #  CI Pipeline — Data-Driven Customer Retention
 # ═══════════════════════════════════════════════════════════════
 #
-#  Runs on every push and pull request to main.
+#  Runs on every push and pull request.
 #  Jobs:
 #    1. code-quality  — Linting (flake8) + formatting check (black)
 #    2. tests         — Unit & integration tests (pytest)
@@ -12,10 +12,8 @@
 name: CI Pipeline
 
 on:
-  push:
-    branches: [ Youssef ]
-  pull_request:
-    branches: [ main ]
+  push: {}
+  pull_request: {}
   workflow_dispatch:  # Allow manual trigger from GitHub UI
 
 jobs:
@@ -57,7 +55,7 @@ jobs:
 
   # ── Job 2: Tests ──────────────────────────────────────────
   tests:
-    name: Unit & Integration Tests
+    name: Tests
     runs-on: ubuntu-latest
     needs: code-quality  # Only run tests if code quality passes
 
