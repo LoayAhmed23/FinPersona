@@ -67,8 +67,6 @@ def plot_feature_importance():
                 by="Importance (Weight)", ascending=False
             ).head(30)
 
-            output_dir = os.path.join(config.BASE_DIR, "output")
-            os.makedirs(output_dir, exist_ok=True)
 
             plt.figure(figsize=(12, 12))
             sns.barplot(
@@ -81,7 +79,7 @@ def plot_feature_importance():
             plt.xlabel("Gain Importance", fontsize=12)
             plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
-            plt.savefig(os.path.join(output_dir, "feature_importance_gain.png"))
+            plt.savefig(os.path.join(config.PREDICTIONS_DIR, "feature_importance_gain.png"))
             plt.close()
 
             plt.figure(figsize=(12, 12))
@@ -95,10 +93,10 @@ def plot_feature_importance():
             plt.xlabel("Weight Importance", fontsize=12)
             plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
-            plt.savefig(os.path.join(output_dir, "feature_importance_split.png"))
+            plt.savefig(os.path.join(config.PREDICTIONS_DIR, "feature_importance_split.png"))
             plt.close()
 
-            print(f"Saved feature importance plots to {output_dir}")
+            print(f"Saved feature importance plots to {config.PREDICTIONS_DIR}")
         except Exception as e:
             print(f"Error extracting importance scores: {e}")
     else:
@@ -120,8 +118,6 @@ def plot_feature_target_correlation(
     top_n : int
         Number of features to display (by absolute correlation).
     """
-    output_dir = os.path.join(config.BASE_DIR, "output")
-    os.makedirs(output_dir, exist_ok=True)
 
     # If X/y not supplied, reconstruct from raw data + saved artifacts
     if X is None or y is None:
@@ -197,7 +193,7 @@ def plot_feature_target_correlation(
     ax.axvline(0, color="grey", linewidth=0.8, linestyle="--")
 
     plt.tight_layout()
-    save_path = os.path.join(output_dir, "feature_target_correlation.png")
+    save_path = os.path.join(config.PREDICTIONS_DIR, "feature_target_correlation.png")
     plt.savefig(save_path, dpi=150)
     plt.close()
     print(f"  Saved feature target correlation plot to {save_path}")

@@ -225,6 +225,4 @@ poetry run flake8 .
 ```
 
 The tests use small deterministic data frames, temporary output files, and
-monkeypatched model stages. They cover data cleaning, module-level feature and
-metric logic, gateway proxy behavior, launcher configuration, and recommendation
-batch output generation.
+monkeypatched model stages. They cover data cleaning, and important module-level features in the three modules
