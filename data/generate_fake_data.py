@@ -22,7 +22,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 
-
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)

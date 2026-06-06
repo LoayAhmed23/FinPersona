@@ -7,13 +7,12 @@ Loads monthly prime files, transaction files, creates the churn label
 import glob
 import os
 
-import pandas as pd
-
 import config
+import pandas as pd
 
 
 # Churn labeling
-def create_churn_labels(data_dir = None) -> pd.DataFrame:
+def create_churn_labels(data_dir=None) -> pd.DataFrame:
     """Label customers as churned based on presence across the start and end months.
 
     If a CUSTOMER_ID exists in the reference month but NOT in the
@@ -50,10 +49,11 @@ def create_churn_labels(data_dir = None) -> pd.DataFrame:
 
     # Generate churn label
     ref_deduped[config.TARGET_COL] = ref_deduped.apply(
-        lambda row: 1 if (
-            row[cid] not in tgt_ids or
-            row[status] in config.CHURN_DEFAULT_STATUSES
-        ) else 0,
+        lambda row: (
+            1
+            if (row[cid] not in tgt_ids or row[status] in config.CHURN_DEFAULT_STATUSES)
+            else 0
+        ),
         axis=1,
     )
 
@@ -87,7 +87,6 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
         elif c == canonical_id and raw_id in header_cols:
             resolved.append(raw_id)
             rename_map[raw_id] = canonical_id
-        
 
     if not resolved:
         raise ValueError(f"[{label}] None of {usecols} found in {filepath}")
@@ -101,9 +100,10 @@ def _load_label_file(filepath: str, label: str, usecols: list) -> pd.DataFrame:
         df[col] = df[col].str.strip()
     df.dropna(subset=[cols_present[0]], inplace=True)
 
-    print(f"  [{label}] Loaded {len(df):,} rows | unique IDs: {df[cols_present[0]].nunique():,}")
+    print(
+        f"  [{label}] Loaded {len(df):,} rows | unique IDs: {df[cols_present[0]].nunique():,}"
+    )
     return df
-
 
 
 # Transaction data
@@ -117,7 +117,9 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
     dfs = []
     for f in files:
         df = pd.read_csv(f, encoding="latin")
-        df[config.TXN_DATE_COL] = pd.to_datetime(df[config.TXN_DATE_COL], errors="coerce")
+        df[config.TXN_DATE_COL] = pd.to_datetime(
+            df[config.TXN_DATE_COL], errors="coerce"
+        )
         dfs.append(df)
 
     combined = pd.concat(dfs, ignore_index=True)
@@ -142,7 +144,6 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
 
     print(f"[data_loader] Loaded {len(files)} transaction file(s) -> {combined.shape}")
     return combined
-
 
 
 # Prime data

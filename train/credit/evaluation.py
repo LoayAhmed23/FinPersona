@@ -4,22 +4,31 @@ Evaluation metrics and report generation for the Credit Risk Module.
 
 import numpy as np
 from sklearn.metrics import (
-    roc_auc_score, roc_curve, f1_score, recall_score,
-    precision_score, accuracy_score, confusion_matrix, classification_report, precision_recall_curve
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
 )
 
 
 def find_best_threshold_fbeta(y_true, y_proba, beta=2.0) -> float:
     """Find the threshold that maximizes the F-beta score."""
     precision, recall, thresholds = precision_recall_curve(y_true, y_proba)
-    
+
     # Avoid division by zero
     numerator = (1 + beta**2) * (precision[:-1] * recall[:-1])
-    denominator = (beta**2 * precision[:-1] + recall[:-1])
-    
+    denominator = beta**2 * precision[:-1] + recall[:-1]
+
     # Calculate fbeta, handle 0/0 and assign 0 where denominator is 0
-    fbeta = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=denominator!=0)
-    
+    fbeta = np.divide(
+        numerator, denominator, out=np.zeros_like(numerator), where=denominator != 0
+    )
+
     best_idx = np.argmax(fbeta)
     return thresholds[best_idx]
 
@@ -43,9 +52,9 @@ def evaluate(y_true, y_pred, y_proba, threshold=0.5) -> dict:
     }
 
 
-def generate_report(metrics: dict, y_true, y_pred,
-                     output_path: str = None,
-                     model_params: dict = None) -> str:
+def generate_report(
+    metrics: dict, y_true, y_pred, output_path: str = None, model_params: dict = None
+) -> str:
     """Build a plain-text evaluation report and optionally write it to disk."""
     lines = []
     lines.append("=" * 60)
@@ -89,7 +98,9 @@ def generate_report(metrics: dict, y_true, y_pred,
     lines.append("")
     lines.append("CLASSIFICATION REPORT")
     lines.append("-" * 40)
-    lines.append(classification_report(y_true, y_pred, target_names=["Non-default", "Default"]))
+    lines.append(
+        classification_report(y_true, y_pred, target_names=["Non-default", "Default"])
+    )
 
     lines.append("=" * 60)
 

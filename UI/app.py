@@ -9,11 +9,18 @@ to the three module servers:
 """
 
 import os
-import sys
 import subprocess
+import sys
 
-from flask import Flask, render_template, request, jsonify, Response, send_from_directory
 import requests as http_requests
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template,
+    request,
+    send_from_directory,
+)
 
 # ── Configuration ──
 CREDIT_URL = "http://127.0.0.1:5005"
@@ -28,6 +35,7 @@ app = Flask(__name__)
 
 # ── Static routes ──
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -39,6 +47,7 @@ def serve_logo():
 
 
 # ── Browse endpoint (runs on the gateway itself) ──
+
 
 @app.route("/api/browse", methods=["POST"])
 def api_browse():
@@ -56,7 +65,9 @@ def api_browse():
     try:
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         selected = result.stdout.strip()
         if selected:
@@ -77,11 +88,18 @@ BACKEND_MAP = {
 }
 
 # Headers we pass through
-HOP_BY_HOP = frozenset([
-    "connection", "keep-alive", "proxy-authenticate",
-    "proxy-authorization", "te", "trailers",
-    "transfer-encoding", "upgrade",
-])
+HOP_BY_HOP = frozenset(
+    [
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    ]
+)
 
 
 def _proxy(module: str, path: str):
@@ -93,10 +111,7 @@ def _proxy(module: str, path: str):
     url = f"{base}/{path}"
 
     # Build headers (skip hop-by-hop)
-    headers = {
-        k: v for k, v in request.headers
-        if k.lower() not in HOP_BY_HOP
-    }
+    headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
     headers.pop("Host", None)
 
     try:
@@ -110,15 +125,17 @@ def _proxy(module: str, path: str):
             stream=True,
         )
     except http_requests.ConnectionError:
-        return jsonify({
-            "error": f"Cannot reach {module} server at {base}. Is it running?"
-        }), 502
+        return (
+            jsonify(
+                {"error": f"Cannot reach {module} server at {base}. Is it running?"}
+            ),
+            502,
+        )
 
     # Build response
     excluded = HOP_BY_HOP | {"content-encoding", "content-length"}
     response_headers = [
-        (k, v) for k, v in resp.raw.headers.items()
-        if k.lower() not in excluded
+        (k, v) for k, v in resp.raw.headers.items() if k.lower() not in excluded
     ]
 
     return Response(
@@ -129,6 +146,7 @@ def _proxy(module: str, path: str):
 
 
 # ── Proxy routes ──
+
 
 @app.route("/credit/<path:path>", methods=["GET", "POST"])
 def proxy_credit(path):

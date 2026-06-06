@@ -1,23 +1,22 @@
 """
-Complete Pipeline of the Churn Module 
+Complete Pipeline of the Churn Module
 """
 
-import os
 import argparse
+import os
 import sys
 
-from sklearn.model_selection import train_test_split
-
 import config
-from data_loader import create_churn_labels, load_transaction_data, load_prime_data
+from data_loader import create_churn_labels, load_prime_data, load_transaction_data
+from evaluation import evaluate_all, generate_report
 from feature_engineering import (
-    engineer_transaction_features,
     engineer_prime_features,
+    engineer_transaction_features,
     merge_all,
 )
+from model import save_model, train_classifiers, tune_models
 from preprocessing import preprocess
-from model import train_classifiers, tune_models, save_model
-from evaluation import evaluate_all, generate_report
+from sklearn.model_selection import train_test_split
 
 
 def _ensure_output_dir():
@@ -32,10 +31,12 @@ def _banner(step, total, title):
 
 
 # Training pipeline
-def run_training_pipeline(tune: bool = False,
-                          raw_prime_dir: str = None, 
-                          cleaned_prime_dir: str = None, 
-                          cleaned_trx_dir: str = None):
+def run_training_pipeline(
+    tune: bool = False,
+    raw_prime_dir: str = None,
+    cleaned_prime_dir: str = None,
+    cleaned_trx_dir: str = None,
+):
     """Full training pipeline of Churn Prediction Module.
 
     Parameters
@@ -76,7 +77,9 @@ def run_training_pipeline(tune: bool = False,
         churn_labels["RIMNO"] = churn_labels["RIMNO"].astype(str).str.strip()
         rim_map["RIMNO"] = rim_map["RIMNO"].astype(str).str.strip()
         churn_labels = churn_labels.merge(rim_map, on="RIMNO", how="inner")
-        churn_labels[config.CUSTOMER_ID] = churn_labels[config.CUSTOMER_ID].astype(str).str.strip()
+        churn_labels[config.CUSTOMER_ID] = (
+            churn_labels[config.CUSTOMER_ID].astype(str).str.strip()
+        )
 
     # Merge Datasets
     _banner(4, TOTAL, "MERGING DATASETS")
@@ -93,7 +96,8 @@ def run_training_pipeline(tune: bool = False,
     # Train / Test Split
     _banner(6, TOTAL, "TRAIN / TEST SPLIT")
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=config.TEST_SIZE,
         random_state=config.RANDOM_STATE,
         stratify=y,
@@ -128,7 +132,9 @@ def run_training_pipeline(tune: bool = False,
             preds = model.predict(X_test)
             probs = model.predict_proba(X_test)[:, 1]
             results[f"{name} (tuned)"] = {
-                "model": model, "preds": preds, "probs": probs,
+                "model": model,
+                "preds": preds,
+                "probs": probs,
             }
 
         metrics_df = evaluate_all(y_test, results)
@@ -143,7 +149,10 @@ def run_training_pipeline(tune: bool = False,
     step += 1
     _banner(step, TOTAL + 1, "EVALUATION & OUTPUT")
     report = generate_report(
-        metrics_df, y_test, best_name, best_result["preds"],
+        metrics_df,
+        y_test,
+        best_name,
+        best_result["preds"],
         output_path=config.REPORT_PATH,
     )
     print(report)
@@ -155,11 +164,13 @@ def run_training_pipeline(tune: bool = False,
     all_probs = best_model.predict_proba(X)[:, 1]
     all_preds = (all_probs >= config.THRESHOLD).astype(int)
 
-    scores_df = __import__("pandas").DataFrame({
-        config.CUSTOMER_ID: final_df[config.CUSTOMER_ID].values,
-        "churn_probability": all_probs,
-        "predicted_churn": all_preds,
-    })
+    scores_df = __import__("pandas").DataFrame(
+        {
+            config.CUSTOMER_ID: final_df[config.CUSTOMER_ID].values,
+            "churn_probability": all_probs,
+            "predicted_churn": all_preds,
+        }
+    )
     scores_df.to_csv(config.SCORES_PATH, index=False)
     print(f"  Churn scores saved to {config.SCORES_PATH}")
 
@@ -169,6 +180,7 @@ def run_training_pipeline(tune: bool = False,
     print("=" * 60)
 
     return metrics_df
+
 
 def main():
     """

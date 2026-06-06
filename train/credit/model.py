@@ -2,31 +2,32 @@
 Model training, hyperparameter tuning, and model saving.
 """
 
-import xgboost as xgb
-import joblib
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import make_scorer, roc_auc_score
-
 import config
+import joblib
+import xgboost as xgb
+from sklearn.metrics import make_scorer, roc_auc_score
+from sklearn.model_selection import RandomizedSearchCV
 
 
-def get_top_features_by_gain(booster: "xgb.Booster", feature_order: list[str], top_n: int = 20) -> list[str]:
+def get_top_features_by_gain(
+    booster: "xgb.Booster", feature_order: list[str], top_n: int = 20
+) -> list[str]:
     """Return the top-N features ranked by XGBoost 'gain'."""
-    
+
     if top_n <= 0:
         raise ValueError("top_n must be a positive integer")
 
     gain_dict = booster.get_score(importance_type="gain")
 
-
     scored = [(f, float(gain_dict.get(f, 0.0))) for f in feature_order]
     scored.sort(key=lambda t: t[1], reverse=True)
-
 
     return [f for f, _ in scored[: min(top_n, len(scored))]]
 
 
-def subset_to_features(X_train, X_test, X_all, artifacts: dict, selected_features: list[str]):
+def subset_to_features(
+    X_train, X_test, X_all, artifacts: dict, selected_features: list[str]
+):
     """Subset train/test/all matrices + artifacts to a fixed ordered feature list."""
     if not selected_features:
         raise ValueError("selected_features is empty")
@@ -45,12 +46,14 @@ def subset_to_features(X_train, X_test, X_all, artifacts: dict, selected_feature
 
 
 # Training
-def train_xgboost(X_train, y_train, X_val, y_val, params=None, sample_weight_train=None):
+def train_xgboost(
+    X_train, y_train, X_val, y_val, params=None, sample_weight_train=None
+):
     """Train an XGBoost model with early stopping.
 
     Returns the trained Booster.
     """
-    params = params or dict(config.XGB_PARAMS) 
+    params = params or dict(config.XGB_PARAMS)
 
     # Automatic scale_pos_weight: skip when SMOTE already rebalanced the data
     if "scale_pos_weight" not in params:
@@ -84,12 +87,12 @@ def train_xgboost(X_train, y_train, X_val, y_val, params=None, sample_weight_tra
     bst = xgb.train(
         params,
         xgb_train,
-        num_boost_round=config.NUM_BOOST_ROUND,      
+        num_boost_round=config.NUM_BOOST_ROUND,
         evals=[(xgb_train, "train"), (xgb_val, "valid")],
         early_stopping_rounds=config.EARLY_STOPPING_ROUNDS,
         verbose_eval=10,
     )
-    
+
     best_auc = bst.best_score
     print(f"  Best iteration: {bst.best_iteration}  |  Best valid AUC: {best_auc}")
     return bst
@@ -98,6 +101,7 @@ def train_xgboost(X_train, y_train, X_val, y_val, params=None, sample_weight_tra
 # ---------------------------------------------------------------------------
 # Hyperparameter tuning
 # ---------------------------------------------------------------------------
+
 
 def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
     """Run RandomizedSearchCV over XGBoost.
@@ -114,7 +118,9 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
     # When SMOTE is active, the training set is already rebalanced.
     if getattr(config, "SMOTE_ENABLED", False):
         scale_pos_weight = 1.0
-        print("  [tune] SMOTE is active — setting scale_pos_weight=1.0 (no double-boost)")
+        print(
+            "  [tune] SMOTE is active — setting scale_pos_weight=1.0 (no double-boost)"
+        )
     else:
         num_neg = (y_train == 0).sum()
         num_pos = (y_train == 1).sum()
@@ -135,13 +141,13 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
 
     search = RandomizedSearchCV(
         estimator=model,
-        param_distributions=config.TUNE_PARAM_GRID,  
+        param_distributions=config.TUNE_PARAM_GRID,
         n_iter=config.TUNE_N_ITER,
         scoring=scorer,
         cv=config.TUNE_CV_FOLDS,
         verbose=2,
         random_state=config.RANDOM_STATE,
-        n_jobs=config.N_GPUS, # Use all GPUS
+        n_jobs=config.N_GPUS,  # Use all GPUS
     )
 
     print(
@@ -153,7 +159,9 @@ def tune_hyperparameters(X_train, y_train, X_val=None, y_val=None):
     if X_val is not None and y_val is not None:
         fit_params["eval_set"] = [(X_val, y_val)]
         fit_params["verbose"] = False
-        print(f"  Using held-out eval_set ({X_val.shape[0]:,} samples) for early stopping")
+        print(
+            f"  Using held-out eval_set ({X_val.shape[0]:,} samples) for early stopping"
+        )
 
     search.fit(X_train, y_train, **fit_params)
 

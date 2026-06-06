@@ -1,16 +1,15 @@
 """
 Data loading utilities.
-Reads monthly CSV and merging logic for combining data frames 
+Reads monthly CSV and merging logic for combining data frames
 """
 
 import glob
 import os
 import re
 
+import config
 import numpy as np
 import pandas as pd
-
-import config
 
 
 # Helpers for parsing messy numeric strings (e.g. "1,234.00")
@@ -38,9 +37,18 @@ def _parse_float(x):
 
 # Month extraction from filenames
 _MONTH_MAP = {
-    "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4,
-    "MAY": 5, "JUN": 6, "JUL": 7, "AUG": 8,
-    "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
 }
 
 
@@ -48,7 +56,8 @@ def _get_month_year_prime(file_path: str) -> pd.Timestamp:
     """Extract datetime from prime filename like ``cleaned_JUL_2025.csv``."""
     name = os.path.basename(file_path).upper()
     match = re.search(
-        r"(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)_?(\d{4})", name,
+        r"(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)_?(\d{4})",
+        name,
     )
     if match:
         month = _MONTH_MAP[match.group(1)]
@@ -81,9 +90,9 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
     # Build dtype dict: read numeric-ish cols as string so we can clean them
     str_dtype = {
         col: "string"
-        for col in (config.PRIME_STRING_COLS
-                    + config.PRIME_INT_COLS
-                    + config.PRIME_FLOAT_COLS)
+        for col in (
+            config.PRIME_STRING_COLS + config.PRIME_INT_COLS + config.PRIME_FLOAT_COLS
+        )
     }
 
     frames = []
@@ -111,7 +120,9 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
 
     # Parse date columns
     for col in config.DATE_COLS_PRIME:
-        if col in combined.columns and not pd.api.types.is_datetime64_any_dtype(combined[col]):
+        if col in combined.columns and not pd.api.types.is_datetime64_any_dtype(
+            combined[col]
+        ):
             combined[col] = pd.to_datetime(combined[col], errors="coerce")
 
     # Sort by month for deterministic ordering
@@ -119,8 +130,10 @@ def load_prime_data(data_dir: str = None) -> pd.DataFrame:
 
     print(f"[data_loader] Loaded {len(files)} prime file(s) -> {combined.shape}")
     months = combined[config.MONTH_COL].nunique()
-    print(f"  Detected {months} unique month(s): "
-          f"{sorted(combined[config.MONTH_COL].dt.strftime('%Y-%m').unique())}")
+    print(
+        f"  Detected {months} unique month(s): "
+        f"{sorted(combined[config.MONTH_COL].dt.strftime('%Y-%m').unique())}"
+    )
     return combined
 
 
@@ -146,13 +159,17 @@ def load_transaction_data(data_dir: str = None) -> pd.DataFrame:
 
     # Parse date columns
     for col in config.DATE_COLS_TXN:
-        if col in combined.columns and not pd.api.types.is_datetime64_any_dtype(combined[col]):
+        if col in combined.columns and not pd.api.types.is_datetime64_any_dtype(
+            combined[col]
+        ):
             combined[col] = pd.to_datetime(combined[col], errors="coerce")
 
     print(f"[data_loader] Loaded {len(files)} transaction file(s) -> {combined.shape}")
     months = combined[config.MONTH_COL].nunique()
-    print(f"  Detected {months} unique month(s): "
-          f"{sorted(combined[config.MONTH_COL].dt.strftime('%Y-%m').unique())}")
+    print(
+        f"  Detected {months} unique month(s): "
+        f"{sorted(combined[config.MONTH_COL].dt.strftime('%Y-%m').unique())}"
+    )
     return combined
 
 
@@ -173,7 +190,9 @@ def merge_data(prime_df: pd.DataFrame, txn_features_df: pd.DataFrame) -> pd.Data
     # CUSTOMER_ID is part of the MultiIndex — rebuild with aligned dtype
     idx_names = txn_features_df.index.names
     txn_features_df = txn_features_df.reset_index()
-    txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype("Int64")
+    txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype(
+        "Int64"
+    )
     txn_features_df = txn_features_df.set_index(idx_names)
 
     # Month-aware merge: txn_features is indexed by (CUSTOMER_ID, month)

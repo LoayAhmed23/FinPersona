@@ -2,11 +2,10 @@
 Preprocessin: encoding, imputation, and feature preparation for modeling.
 """
 
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
-
 import config
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
 
 
 def preprocess(df: pd.DataFrame, fit: bool = True, artifacts: dict = None):
@@ -14,13 +13,13 @@ def preprocess(df: pd.DataFrame, fit: bool = True, artifacts: dict = None):
 
     If fit is True, fit encoders and return them in artifacts.
     If fit is False, reuse encoders from artifacts.
-    
+
     artifacts : dict
         Previously fitted {encoders, feature_order}.
 
     Returns
     -------
-    X : pd.DataFrame 
+    X : pd.DataFrame
     y : pd.Series — target vector
     artifacts : dict
     """

@@ -1,36 +1,36 @@
 """
-Pipeline of the Credit Risk Module 
+Pipeline of the Credit Risk Module
 """
 
-import os
 import argparse
+import os
 import sys
 
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import roc_auc_score
-from imblearn.over_sampling import SMOTE
-
 import config
+import pandas as pd
 from data_loader import load_prime_data, load_transaction_data, merge_data
+from evaluation import evaluate, find_best_threshold_fbeta, generate_report
 from feature_engineering import (
-    engineer_prime_features,
-    engineer_transaction_features,
-    engineer_temporal_features,
     create_target,
+    engineer_prime_features,
+    engineer_temporal_features,
+    engineer_transaction_features,
 )
-from preprocessing import preprocess, drop_uncorrelated_features
+from feature_importance import plot_feature_importance, plot_feature_target_correlation
+from imblearn.over_sampling import SMOTE
 from model import (
+    get_top_features_by_gain,
+    load_model,
+    save_model,
+    subset_to_features,
     train_xgboost,
     tune_hyperparameters,
-    save_model,
-    load_model,
-    get_top_features_by_gain,
-    subset_to_features,
 )
-from evaluation import evaluate, generate_report, find_best_threshold_fbeta
-from feature_importance import plot_feature_importance, plot_feature_target_correlation
+from preprocessing import drop_uncorrelated_features, preprocess
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+
 
 def _ensure_output_dir():
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
@@ -44,10 +44,13 @@ def _banner(step, total, title):
 
 
 # Leakage detection
-def check_for_leakage(X: pd.DataFrame, y: pd.Series,
-                      threshold: float = None,
-                      top_n: int = 10,
-                      abort_on_leak: bool = True) -> list[tuple[str, float]]:
+def check_for_leakage(
+    X: pd.DataFrame,
+    y: pd.Series,
+    threshold: float = None,
+    top_n: int = 10,
+    abort_on_leak: bool = True,
+) -> list[tuple[str, float]]:
     """Fit a depth-1 decision tree on each feature individually.
 
     Any feature with a single-feature AUC above `threshold` is flagged as a
@@ -85,11 +88,13 @@ def check_for_leakage(X: pd.DataFrame, y: pd.Series,
 
     if suspects:
         print(f"\n{'!' * 60}")
-        print(f"  LEAKAGE WARNING — {len(suspects)} feature(s) with single-feature "
-              f"AUC > {threshold}:")
+        print(
+            f"  LEAKAGE WARNING — {len(suspects)} feature(s) with single-feature "
+            f"AUC > {threshold}:"
+        )
         for col, auc in suspects[:top_n]:
             print(f"    {col:<45} AUC = {auc}")
-        print(f"  Add these columns to config.DROP_COLS and re-run.")
+        print("  Add these columns to config.DROP_COLS and re-run.")
         print(f"{'!' * 60}\n")
 
         if abort_on_leak:
@@ -105,8 +110,10 @@ def check_for_leakage(X: pd.DataFrame, y: pd.Series,
 
 # Training pipeline
 
-def run_training_pipeline(tune: bool = False, sample: bool = False,
-                          prime_dir: str = None, txn_dir: str = None):
+
+def run_training_pipeline(
+    tune: bool = False, sample: bool = False, prime_dir: str = None, txn_dir: str = None
+):
     """Full training pipeline
 
     Parameters
@@ -126,17 +133,17 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
 
     _banner(1, TOTAL, "LOADING DATA")
     prime_df = load_prime_data(prime_dir)
-    txn_df   = load_transaction_data(txn_dir)
-    
+    txn_df = load_transaction_data(txn_dir)
+
     _banner(2, TOTAL, "FEATURE ENGINEERING")
-    prime_df     = engineer_prime_features(prime_df)
+    prime_df = engineer_prime_features(prime_df)
     txn_features = engineer_transaction_features(txn_df)
 
     _banner(3, TOTAL, "MERGING PRIME + TRANSACTION DATA")
     merged = merge_data(prime_df, txn_features)
 
     _banner(4, TOTAL, "CREATING TARGET VARIABLE")
-    # create_target returns the full DataFrame 
+    # create_target returns the full DataFrame
     merged = create_target(merged)
     target = merged[config.TARGET_COL]
 
@@ -162,52 +169,57 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
             stratify=target,
             random_state=config.RANDOM_STATE,
         )
-        merged        = merged.loc[keep_idx]
-        target        = target.loc[keep_idx]
-        sample_weight = sample_weight.loc[keep_idx] if sample_weight is not None else None
+        merged = merged.loc[keep_idx]
+        target = target.loc[keep_idx]
+        sample_weight = (
+            sample_weight.loc[keep_idx] if sample_weight is not None else None
+        )
 
     n_default = int(target.sum())
-    n_total   = len(target)
+    n_total = len(target)
     print(f"  Total samples:   {n_total:,}")
     print(f"  Default     (1): {n_default:,}  ({n_default / n_total * 100:.1f}%)")
-    print(f"  Non-default (0): {n_total - n_default:,}  "
-          f"({(n_total - n_default) / n_total * 100:.1f}%)")
+    print(
+        f"  Non-default (0): {n_total - n_default:,}  "
+        f"({(n_total - n_default) / n_total * 100:.1f}%)"
+    )
 
     customer_ids = merged[config.CUSTOMER_ID].copy()
     rimno_ids = merged["RIMNO"].copy() if "RIMNO" in merged.columns else None
 
     # Save the snapshot_month before preprocessing drops it
     snapshot_months = (
-        merged[config.MONTH_COL].copy()
-        if config.MONTH_COL in merged.columns
-        else None
+        merged[config.MONTH_COL].copy() if config.MONTH_COL in merged.columns else None
     )
 
     _banner(6, TOTAL, "PREPROCESSING (encoding, scaling, imputation)")
     X, y, artifacts = preprocess(merged, target, fit=True)
 
-
     _banner(7, TOTAL, "CORRELATION FILTER")
     X, dropped_cols = drop_uncorrelated_features(X, y)
     if dropped_cols:
-        artifacts["feature_order"] = [c for c in artifacts["feature_order"] if c not in dropped_cols]
+        artifacts["feature_order"] = [
+            c for c in artifacts["feature_order"] if c not in dropped_cols
+        ]
 
     _banner(8, TOTAL, "LEAKAGE CHECK")
-    # abort_on_leak should be set to True, but here it is set to False 
+    # abort_on_leak should be set to True, but here it is set to False
     # becuase of running on fake data
-    check_for_leakage(X, y, abort_on_leak=False) 
+    check_for_leakage(X, y, abort_on_leak=False)
 
     _banner(9, TOTAL, "TRAIN / TEST SPLIT (temporal)")
     snapshot_months = snapshot_months.loc[X.index]
     latest_month = snapshot_months.max()
     train_mask = snapshot_months < latest_month
-    test_mask  = snapshot_months == latest_month
+    test_mask = snapshot_months == latest_month
 
     X_train, X_test = X[train_mask], X[test_mask]
     y_train, y_test = y[train_mask], y[test_mask]
     sw_train = sample_weight[train_mask] if sample_weight is not None else None
-    print(f"  Temporal split: train on months < {latest_month.strftime('%Y-%m')}, "
-            f"test on {latest_month.strftime('%Y-%m')}")
+    print(
+        f"  Temporal split: train on months < {latest_month.strftime('%Y-%m')}, "
+        f"test on {latest_month.strftime('%Y-%m')}"
+    )
 
     print(f"  Train set:          {X_train.shape[0]:,} samples")
     print(f"  Test set:           {X_test.shape[0]:,} samples")
@@ -222,13 +234,17 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
             sampling_strategy=config.SMOTE_SAMPLING_STRATEGY,
             random_state=config.RANDOM_STATE,
         )
-        print(f"  Before SMOTE: {X_train.shape[0]:,} samples "
-              f"(default={int(y_train.sum()):,}, non-default={int((y_train==0).sum()):,})")
+        print(
+            f"  Before SMOTE: {X_train.shape[0]:,} samples "
+            f"(default={int(y_train.sum()):,}, non-default={int((y_train==0).sum()):,})"
+        )
         X_train, y_train = smote.fit_resample(X_train, y_train)
         # sample_weight is not meaningful after SMOTE — reset to None
         sw_train = None
-        print(f"  After  SMOTE: {X_train.shape[0]:,} samples "
-              f"(default={int(y_train.sum()):,}, non-default={int((y_train==0).sum()):,})")
+        print(
+            f"  After  SMOTE: {X_train.shape[0]:,} samples "
+            f"(default={int(y_train.sum()):,}, non-default={int((y_train==0).sum()):,})"
+        )
     else:
         print("  SMOTE disabled — skipping.")
 
@@ -265,7 +281,9 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
         y_proba = best_model.predict_proba(X_test)[:, 1]
 
         print("  Finding best decision threshold (F-beta) ...")
-        best_threshold = find_best_threshold_fbeta(y_test, y_proba, beta=config.FBETA_VALUE)
+        best_threshold = find_best_threshold_fbeta(
+            y_test, y_proba, beta=config.FBETA_VALUE
+        )
         print(f"  Best threshold: {best_threshold:.4f}")
 
         y_pred = (y_proba >= best_threshold).astype(int)
@@ -282,11 +300,14 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
         )
         print("  Generating predictions on test set ...")
         import xgboost as xgb
+
         dtest = xgb.DMatrix(X_test)
         y_proba = bst.predict(dtest)
 
         print("  Finding best decision threshold (F-beta) ...")
-        best_threshold = find_best_threshold_fbeta(y_test, y_proba, beta=config.FBETA_VALUE)
+        best_threshold = find_best_threshold_fbeta(
+            y_test, y_proba, beta=config.FBETA_VALUE
+        )
         print(f"  Best threshold: {best_threshold:.4f}")
 
         y_pred = (y_proba >= best_threshold).astype(int)
@@ -309,8 +330,9 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
 
     _banner(13, TOTAL, "EVALUATION & OUTPUT")
     metrics = evaluate(y_test, y_pred, y_proba, threshold=best_threshold)
-    report  = generate_report(metrics, y_test, y_pred, config.REPORT_PATH,
-                              model_params=model_params)
+    report = generate_report(
+        metrics, y_test, y_pred, config.REPORT_PATH, model_params=model_params
+    )
     print(report)
 
     print("  Scoring all customers ...")
@@ -318,14 +340,15 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
         all_proba = best_model.predict_proba(X)[:, 1]
     else:
         import xgboost as xgb
+
         dall = xgb.DMatrix(X)
         all_proba = bst.predict(dall)
     all_pred = (all_proba >= best_threshold).astype(int)
 
     scores_data = {
-        config.CUSTOMER_ID:    customer_ids.loc[X.index].values,
+        config.CUSTOMER_ID: customer_ids.loc[X.index].values,
         "default_probability": all_proba,
-        "predicted_label":     all_pred,
+        "predicted_label": all_pred,
     }
     if rimno_ids is not None:
         scores_data = {"RIMNO": rimno_ids.loc[X.index].values, **scores_data}
@@ -336,7 +359,11 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
     # Save best_threshold + selected feature list inside artifacts
     save_model(
         model_to_save,
-        {**artifacts, "best_threshold": best_threshold, "selected_features": selected_features},
+        {
+            **artifacts,
+            "best_threshold": best_threshold,
+            "selected_features": selected_features,
+        },
     )
 
     print()
@@ -358,10 +385,12 @@ def run_training_pipeline(tune: bool = False, sample: bool = False,
 
 
 # Scoring pipeline (new data)
-def run_scoring_pipeline(model_path: str = None,     
-                         prime_dir:   str = None,    
-                         txn_dir:     str = None,    
-                         output_path: str = None):   
+def run_scoring_pipeline(
+    model_path: str = None,
+    prime_dir: str = None,
+    txn_dir: str = None,
+    output_path: str = None,
+):
     """Score new monthly data using previously trained model."""
     TOTAL = 5
     _ensure_output_dir()
@@ -376,12 +405,12 @@ def run_scoring_pipeline(model_path: str = None,
 
     _banner(2, TOTAL, "LOADING NEW DATA")
     prime_df = load_prime_data(prime_dir)
-    txn_df   = load_transaction_data(txn_dir)
+    txn_df = load_transaction_data(txn_dir)
 
     _banner(3, TOTAL, "FEATURE ENGINEERING")
-    prime_df     = engineer_prime_features(prime_df)
+    prime_df = engineer_prime_features(prime_df)
     txn_features = engineer_transaction_features(txn_df)
-    merged       = merge_data(prime_df, txn_features)
+    merged = merge_data(prime_df, txn_features)
 
     customer_ids = merged[config.CUSTOMER_ID].copy()
     rimno_ids = merged["RIMNO"].copy() if "RIMNO" in merged.columns else None
@@ -390,21 +419,22 @@ def run_scoring_pipeline(model_path: str = None,
     X, _, _ = preprocess(merged, y=None, fit=False, artifacts=artifacts)
 
     _banner(5, TOTAL, "SCORING")
-    print(f"  Scoring {len(X):,} card accounts ...") 
-    
+    print(f"  Scoring {len(X):,} card accounts ...")
+
     import xgboost as xgb
+
     if hasattr(model, "predict_proba"):
         proba = model.predict_proba(X)[:, 1]
     else:
         dmatrix = xgb.DMatrix(X)
         proba = model.predict(dmatrix)
 
-    pred = (proba >= best_threshold).astype(int)     
+    pred = (proba >= best_threshold).astype(int)
 
     scores_data = {
-        config.CUSTOMER_ID:    customer_ids.values,
+        config.CUSTOMER_ID: customer_ids.values,
         "default_probability": proba,
-        "predicted_label":     pred,
+        "predicted_label": pred,
     }
     if rimno_ids is not None:
         scores_data = {"RIMNO": rimno_ids.values, **scores_data}
@@ -413,8 +443,10 @@ def run_scoring_pipeline(model_path: str = None,
     print(f"  Saved to {output_path}")
 
     n_flagged = int(pred.sum())
-    print(f"  Flagged as default: {n_flagged:,} / {len(pred):,} "
-          f"({n_flagged / len(pred) * 100:.1f}%)")
+    print(
+        f"  Flagged as default: {n_flagged:,} / {len(pred):,} "
+        f"({n_flagged / len(pred) * 100:.1f}%)"
+    )
 
     print()
     print("=" * 60)
@@ -441,29 +473,45 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     # --- train ---
-    train_parser = sub.add_parser("train", help="Train the model with default hyperparameters")
-    train_parser.add_argument("--sample", action="store_true", help="Use stratified 25% of data for rapid training/debugging")
+    train_parser = sub.add_parser(
+        "train", help="Train the model with default hyperparameters"
+    )
+    train_parser.add_argument(
+        "--sample",
+        action="store_true",
+        help="Use stratified 25% of data for rapid training/debugging",
+    )
 
     # --- tune ---
-    tune_parser = sub.add_parser("tune", help="Train with RandomizedSearchCV hyperparameter tuning")
-    tune_parser.add_argument("--sample", action="store_true", help="Use stratified 25% of data for rapid tuning/debugging")
+    tune_parser = sub.add_parser(
+        "tune", help="Train with RandomizedSearchCV hyperparameter tuning"
+    )
+    tune_parser.add_argument(
+        "--sample",
+        action="store_true",
+        help="Use stratified 25% of data for rapid tuning/debugging",
+    )
 
     # --- score ---
     score_parser = sub.add_parser("score", help="Score new data using a saved model")
     score_parser.add_argument(
-        "--model", default=config.MODEL_PATH,
+        "--model",
+        default=config.MODEL_PATH,
         help="Path to saved model (.joblib)",
     )
     score_parser.add_argument(
-        "--prime-dir", default=config.PRIME_DATA_DIR,
+        "--prime-dir",
+        default=config.PRIME_DATA_DIR,
         help="Directory with new prime CSVs",
     )
     score_parser.add_argument(
-        "--txn-dir", default=config.TRANSACTION_DATA_DIR,
+        "--txn-dir",
+        default=config.TRANSACTION_DATA_DIR,
         help="Directory with new transaction CSVs",
     )
     score_parser.add_argument(
-        "--output", default=config.SCORES_PATH,
+        "--output",
+        default=config.SCORES_PATH,
         help="Output CSV path for risk scores",
     )
 

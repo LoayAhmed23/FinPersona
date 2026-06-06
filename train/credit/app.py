@@ -8,14 +8,16 @@ Provides a premium web interface to:
   3. Score customers and view risk predictions
 """
 
-from flask import Flask, render_template, request, jsonify
+import glob
+import json
 import os
 import sys
-import json
 import threading
 import traceback
-import io
-import glob
+
+import config
+import numpy as np
+from flask import Flask, jsonify, render_template, request
 
 # Ensure the credit module directory is on sys.path so local imports work
 CREDIT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,10 +28,6 @@ if CREDIT_DIR not in sys.path:
 PROJECT_ROOT = os.path.abspath(os.path.join(CREDIT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
-
-import numpy as np
-
-import config
 
 app = Flask(__name__)
 
@@ -59,7 +57,7 @@ STATE_JSON = os.path.join(SAVE_DIR, "credit_app_state.json")
 
 # ── Global pipeline state ──
 pipeline_state = {
-    "status": "idle",           # idle | loading | loaded | training | trained | scoring | scored | error
+    "status": "idle",  # idle | loading | loaded | training | trained | scoring | scored | error
     "loading_logs": [],
     "training_logs": [],
     "scoring_logs": [],
@@ -84,8 +82,9 @@ pipeline_state = {
 
 def _save_state_meta():
     """Persist lightweight state (no large objects) for UI reload."""
-    saveable = {k: v for k, v in pipeline_state.items()
-                if k not in ("df", "X", "y", "model")}
+    saveable = {
+        k: v for k, v in pipeline_state.items() if k not in ("df", "X", "y", "model")
+    }
     try:
         with open(STATE_JSON, "w") as f:
             json.dump(saveable, f, default=str)
@@ -109,8 +108,30 @@ def _load_state_meta():
         pipeline_state["status"] = max(
             pipeline_state["status"],
             "trained",
-            key=lambda s: ["idle", "loading", "loaded", "training", "trained", "scoring", "scored", "error"].index(s)
-            if s in ["idle", "loading", "loaded", "training", "trained", "scoring", "scored", "error"] else 0
+            key=lambda s: (
+                [
+                    "idle",
+                    "loading",
+                    "loaded",
+                    "training",
+                    "trained",
+                    "scoring",
+                    "scored",
+                    "error",
+                ].index(s)
+                if s
+                in [
+                    "idle",
+                    "loading",
+                    "loaded",
+                    "training",
+                    "trained",
+                    "scoring",
+                    "scored",
+                    "error",
+                ]
+                else 0
+            ),
         )
         pipeline_state["training_logs"] = pipeline_state.get("training_logs") or [
             "[Loaded from cache] Trained model found on disk."
@@ -137,6 +158,7 @@ _load_state_meta()
 
 # ── Data-cleaning helper ──
 
+
 def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
     """Check for ``_cleaned`` sibling directories; run cleaning pipelines if missing.
 
@@ -153,6 +175,7 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
     (prime_cleaned_dir, txn_cleaned_dir)
         Paths to the cleaned directories that should be passed downstream.
     """
+
     def _log(msg):
         if log_fn:
             log_fn(msg)
@@ -175,35 +198,45 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
 
     # ── Prime ──
     raw_prime, prime_cleaned_dir = _resolve_raw_and_cleaned(
-        prime_dir, default_raw_prime, config.PRIME_DATA_DIR,
+        prime_dir,
+        default_raw_prime,
+        config.PRIME_DATA_DIR,
     )
 
-    has_prime = (
-        os.path.isdir(prime_cleaned_dir)
-        and glob.glob(os.path.join(prime_cleaned_dir, "*_active.csv"))
+    has_prime = os.path.isdir(prime_cleaned_dir) and glob.glob(
+        os.path.join(prime_cleaned_dir, "*_active.csv")
     )
     if not has_prime:
-        _log(f"[AUTO-CLEAN] '{prime_cleaned_dir}' not found or empty — running prime cleaning pipeline ...")
+        _log(
+            f"[AUTO-CLEAN] '{prime_cleaned_dir}' not found or empty — running prime cleaning pipeline ..."
+        )
         _log(f"[AUTO-CLEAN]   raw dir -> {raw_prime}")
         from data_cleaning.prime_id_creation import run as run_prime_cleaning
+
         run_prime_cleaning(input_dir=raw_prime, output_dir=prime_cleaned_dir)
         _log(f"[AUTO-CLEAN] Prime cleaning complete -> {prime_cleaned_dir}")
     else:
-        _log(f"[AUTO-CLEAN] Found existing cleaned prime data at '{prime_cleaned_dir}' — skipping cleaning.")
+        _log(
+            f"[AUTO-CLEAN] Found existing cleaned prime data at '{prime_cleaned_dir}' — skipping cleaning."
+        )
 
     # ── Transaction ──
     raw_txn, txn_cleaned_dir = _resolve_raw_and_cleaned(
-        txn_dir, default_raw_txn, config.TRANSACTION_DATA_DIR,
+        txn_dir,
+        default_raw_txn,
+        config.TRANSACTION_DATA_DIR,
     )
 
-    has_txn = (
-        os.path.isdir(txn_cleaned_dir)
-        and glob.glob(os.path.join(txn_cleaned_dir, "*.csv"))
+    has_txn = os.path.isdir(txn_cleaned_dir) and glob.glob(
+        os.path.join(txn_cleaned_dir, "*.csv")
     )
     if not has_txn:
-        _log(f"[AUTO-CLEAN] '{txn_cleaned_dir}' not found or empty — running transaction cleaning pipeline ...")
+        _log(
+            f"[AUTO-CLEAN] '{txn_cleaned_dir}' not found or empty — running transaction cleaning pipeline ..."
+        )
         _log(f"[AUTO-CLEAN]   raw dir -> {raw_txn}")
         from data_cleaning.transaction_id_mapping import run as run_txn_cleaning
+
         run_txn_cleaning(
             prime_cleaned_dir=prime_cleaned_dir,
             transaction_input_dir=raw_txn,
@@ -211,12 +244,15 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
         )
         _log(f"[AUTO-CLEAN] Transaction cleaning complete -> {txn_cleaned_dir}")
     else:
-        _log(f"[AUTO-CLEAN] Found existing cleaned transaction data at '{txn_cleaned_dir}' — skipping cleaning.")
+        _log(
+            f"[AUTO-CLEAN] Found existing cleaned transaction data at '{txn_cleaned_dir}' — skipping cleaning."
+        )
 
     return prime_cleaned_dir, txn_cleaned_dir
 
 
 # ── Routes ──
+
 
 @app.route("/")
 def index():
@@ -226,26 +262,28 @@ def index():
 @app.route("/api/status")
 def api_status():
     """Return current pipeline state (polled by the frontend)."""
-    return jsonify({
-        "status": pipeline_state["status"],
-        "loading_logs": pipeline_state["loading_logs"],
-        "training_logs": pipeline_state["training_logs"],
-        "scoring_logs": pipeline_state["scoring_logs"],
-        "metrics": pipeline_state["metrics"],
-        "error": pipeline_state["error"],
-        "progress_pct": pipeline_state["progress_pct"],
-        "total_samples": pipeline_state["total_samples"],
-        "n_features": pipeline_state["n_features"],
-        "default_rate": pipeline_state["default_rate"],
-        "n_default": pipeline_state["n_default"],
-        "n_non_default": pipeline_state["n_non_default"],
-        "threshold": pipeline_state["threshold"],
-        "model_params": pipeline_state["model_params"],
-        "n_scored": pipeline_state["n_scored"],
-        "n_flagged": pipeline_state["n_flagged"],
-        "flagged_pct": pipeline_state["flagged_pct"],
-        "report_text": pipeline_state.get("report_text", ""),
-    })
+    return jsonify(
+        {
+            "status": pipeline_state["status"],
+            "loading_logs": pipeline_state["loading_logs"],
+            "training_logs": pipeline_state["training_logs"],
+            "scoring_logs": pipeline_state["scoring_logs"],
+            "metrics": pipeline_state["metrics"],
+            "error": pipeline_state["error"],
+            "progress_pct": pipeline_state["progress_pct"],
+            "total_samples": pipeline_state["total_samples"],
+            "n_features": pipeline_state["n_features"],
+            "default_rate": pipeline_state["default_rate"],
+            "n_default": pipeline_state["n_default"],
+            "n_non_default": pipeline_state["n_non_default"],
+            "threshold": pipeline_state["threshold"],
+            "model_params": pipeline_state["model_params"],
+            "n_scored": pipeline_state["n_scored"],
+            "n_flagged": pipeline_state["n_flagged"],
+            "flagged_pct": pipeline_state["flagged_pct"],
+            "report_text": pipeline_state.get("report_text", ""),
+        }
+    )
 
 
 @app.route("/api/train", methods=["POST"])
@@ -261,26 +299,28 @@ def api_train():
     txn_dir = data.get("txn_dir", "").strip() or None
 
     # Reset state
-    pipeline_state.update({
-        "status": "training",
-        "loading_logs": [],
-        "training_logs": [],
-        "scoring_logs": [],
-        "metrics": None,
-        "error": None,
-        "progress_pct": 5,
-        "total_samples": 0,
-        "n_features": 0,
-        "default_rate": 0.0,
-        "n_default": 0,
-        "n_non_default": 0,
-        "threshold": None,
-        "model_params": None,
-        "n_scored": 0,
-        "n_flagged": 0,
-        "flagged_pct": 0.0,
-        "report_text": "",
-    })
+    pipeline_state.update(
+        {
+            "status": "training",
+            "loading_logs": [],
+            "training_logs": [],
+            "scoring_logs": [],
+            "metrics": None,
+            "error": None,
+            "progress_pct": 5,
+            "total_samples": 0,
+            "n_features": 0,
+            "default_rate": 0.0,
+            "n_default": 0,
+            "n_non_default": 0,
+            "threshold": None,
+            "model_params": None,
+            "n_scored": 0,
+            "n_flagged": 0,
+            "flagged_pct": 0.0,
+            "report_text": "",
+        }
+    )
 
     def _run():
         try:
@@ -300,12 +340,15 @@ def api_train():
             # ── Auto-clean raw directories if needed ──
             pipeline_state["progress_pct"] = 7
             log("[PRE-CHECK] Verifying cleaned data directories ...")
-            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=log)
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
+                prime_dir, txn_dir, log_fn=log
+            )
 
             pipeline_state["progress_pct"] = 10
             log("[STEP 1/13] Loading data ...")
 
             from data_loader import load_prime_data, load_transaction_data, merge_data
+
             prime_df = load_prime_data(prime_cleaned)
             txn_df = load_transaction_data(txn_cleaned)
             log(f"  Prime rows: {len(prime_df):,}")
@@ -315,9 +358,12 @@ def api_train():
             log("[STEP 2/13] Feature engineering ...")
 
             from feature_engineering import (
-                engineer_prime_features, engineer_transaction_features,
-                engineer_temporal_features, create_target,
+                create_target,
+                engineer_prime_features,
+                engineer_temporal_features,
+                engineer_transaction_features,
             )
+
             prime_df = engineer_prime_features(prime_df)
             txn_features = engineer_transaction_features(txn_df)
 
@@ -340,17 +386,23 @@ def api_train():
             pipeline_state["total_samples"] = n_total
             pipeline_state["n_default"] = n_default
             pipeline_state["n_non_default"] = n_total - n_default
-            pipeline_state["default_rate"] = round(n_default / n_total * 100, 1) if n_total > 0 else 0
+            pipeline_state["default_rate"] = (
+                round(n_default / n_total * 100, 1) if n_total > 0 else 0
+            )
 
-            log(f"  Total: {n_total:,} | Default: {n_default:,} ({pipeline_state['default_rate']}%)")
+            log(
+                f"  Total: {n_total:,} | Default: {n_default:,} ({pipeline_state['default_rate']}%)"
+            )
 
             pipeline_state["progress_pct"] = 50
             log("[STEP 6-13] Running full pipeline ...")
 
             # Now run the actual pipeline (pass cleaned dirs)
             metrics = credit_pipeline.run_training_pipeline(
-                tune=tune, sample=sample,
-                prime_dir=prime_cleaned, txn_dir=txn_cleaned,
+                tune=tune,
+                sample=sample,
+                prime_dir=prime_cleaned,
+                txn_dir=txn_cleaned,
             )
 
             pipeline_state["metrics"] = {
@@ -369,12 +421,15 @@ def api_train():
             # Load scores summary
             if os.path.exists(config.SCORES_PATH):
                 import pandas as pd
+
                 scores = pd.read_csv(config.SCORES_PATH)
                 n_flagged = int(scores["predicted_label"].sum())
                 pipeline_state["n_scored"] = len(scores)
                 pipeline_state["n_flagged"] = n_flagged
                 pipeline_state["flagged_pct"] = round(n_flagged / len(scores) * 100, 1)
-                log(f"[DONE] Scored {len(scores):,} customers — {n_flagged:,} flagged as default.")
+                log(
+                    f"[DONE] Scored {len(scores):,} customers — {n_flagged:,} flagged as default."
+                )
 
             pipeline_state["status"] = "trained"
             pipeline_state["progress_pct"] = 100
@@ -404,16 +459,19 @@ def api_score():
     prime_dir = data.get("prime_dir", "").strip() or None
     txn_dir = data.get("txn_dir", "").strip() or None
 
-    pipeline_state.update({
-        "status": "scoring",
-        "scoring_logs": [],
-        "error": None,
-        "progress_pct": 10,
-    })
+    pipeline_state.update(
+        {
+            "status": "scoring",
+            "scoring_logs": [],
+            "error": None,
+            "progress_pct": 10,
+        }
+    )
 
     def _run():
         try:
             import pipeline as credit_pipeline
+
             logs = []
 
             def log(msg):
@@ -428,7 +486,9 @@ def api_score():
 
             # ── Auto-clean raw directories if needed ──
             log("[PRE-CHECK] Verifying cleaned data directories ...")
-            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=log)
+            prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
+                prime_dir, txn_dir, log_fn=log
+            )
             pipeline_state["progress_pct"] = 30
 
             scores_df = credit_pipeline.run_scoring_pipeline(
@@ -442,7 +502,9 @@ def api_score():
             pipeline_state["flagged_pct"] = round(n_flagged / len(scores_df) * 100, 1)
 
             log(f"[DONE] Scored {len(scores_df):,} customers.")
-            log(f"  Flagged as default: {n_flagged:,} ({pipeline_state['flagged_pct']}%)")
+            log(
+                f"  Flagged as default: {n_flagged:,} ({pipeline_state['flagged_pct']}%)"
+            )
 
             pipeline_state["status"] = "scored"
             pipeline_state["progress_pct"] = 100
@@ -462,7 +524,10 @@ def api_score():
 def api_lookup():
     """Look up a customer's risk score from the scored CSV by RIMNO."""
     if not os.path.exists(config.SCORES_PATH):
-        return jsonify({"error": "No scores available. Run training or scoring first."}), 400
+        return (
+            jsonify({"error": "No scores available. Run training or scoring first."}),
+            400,
+        )
 
     data = request.json or {}
     rimno_raw = str(data.get("rimno", "")).strip()
@@ -472,14 +537,25 @@ def api_lookup():
     try:
         rimno = int(rimno_raw)
     except ValueError:
-        return jsonify({"error": f"Invalid RIMNO: '{rimno_raw}'. Must be an integer."}), 400
+        return (
+            jsonify({"error": f"Invalid RIMNO: '{rimno_raw}'. Must be an integer."}),
+            400,
+        )
 
     try:
         import pandas as pd
+
         scores = pd.read_csv(config.SCORES_PATH)
 
         if "RIMNO" not in scores.columns:
-            return jsonify({"error": "RIMNO column not found in scores. Please re-run training or scoring."}), 400
+            return (
+                jsonify(
+                    {
+                        "error": "RIMNO column not found in scores. Please re-run training or scoring."
+                    }
+                ),
+                400,
+            )
 
         match = scores[scores["RIMNO"] == rimno]
 
@@ -489,7 +565,11 @@ def api_lookup():
         row = match.iloc[0]
         prob = round(float(row["default_probability"]) * 100, 2)
         label = int(row["predicted_label"])
-        customer_id = int(row[config.CUSTOMER_ID]) if config.CUSTOMER_ID in scores.columns else None
+        customer_id = (
+            int(row[config.CUSTOMER_ID])
+            if config.CUSTOMER_ID in scores.columns
+            else None
+        )
 
         # Determine risk tier
         if prob >= 70:
@@ -501,14 +581,16 @@ def api_lookup():
         else:
             risk_tier = "Low"
 
-        return jsonify({
-            "rimno": rimno,
-            "customer_id": customer_id,
-            "default_probability": prob,
-            "predicted_label": label,
-            "risk_tier": risk_tier,
-            "label_text": "Default" if label == 1 else "Non-Default",
-        })
+        return jsonify(
+            {
+                "rimno": rimno,
+                "customer_id": customer_id,
+                "default_probability": prob,
+                "predicted_label": label,
+                "risk_tier": risk_tier,
+                "label_text": "Default" if label == 1 else "Non-Default",
+            }
+        )
     except Exception as e:
         return jsonify({"error": f"{str(e)}\n\n{traceback.format_exc()}"}), 500
 
@@ -522,6 +604,7 @@ def api_customers():
     q = request.args.get("q", "").strip()
     try:
         import pandas as pd
+
         scores = pd.read_csv(config.SCORES_PATH)
         if "RIMNO" not in scores.columns:
             return jsonify({"customers": []})
@@ -561,7 +644,9 @@ def api_browse():
     try:
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         selected = result.stdout.strip()
         if selected:

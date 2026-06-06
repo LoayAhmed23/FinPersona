@@ -1,5 +1,5 @@
 """
-All Parameters used in Churn Module 
+All Parameters used in Churn Module
 """
 
 import os
@@ -23,15 +23,15 @@ SCORES_PATH = os.path.join(PREDICTIONS_DIR, "churn_scores.csv")
 REPORT_PATH = os.path.join(PREDICTIONS_DIR, "churn_evaluation_report.txt")
 
 # Columns
-CUSTOMER_ID = "CUSTOMER_ID"         
-PRIME_CUSTOMER_ID_RAW = "RIM_NO"    
-TXN_CUSTOMER_ID_RAW = "RIMNO"       
+CUSTOMER_ID = "CUSTOMER_ID"
+PRIME_CUSTOMER_ID_RAW = "RIM_NO"
+TXN_CUSTOMER_ID_RAW = "RIMNO"
 TARGET_COL = "CHURN"
 STATUS_COL = "Card account status "
 
 # Churn labeling
-CHURN_REFERENCE_MONTH = "202602"   # FEB 2026 — base file
-CHURN_TARGET_MONTH = "202605"      # MAY 2026 — target file
+CHURN_REFERENCE_MONTH = "202602"  # FEB 2026 — base file
+CHURN_TARGET_MONTH = "202605"  # MAY 2026 — target file
 CHURN_DEFAULT_STATUSES = ["WROF"]  # statuses that count as churn regardless
 
 CHURN_LABEL_FILES = {
@@ -46,17 +46,24 @@ TXN_DATE_COL = "TRXN DATE"
 TXN_REVERSAL_COL = "REVERSAL FLAG"
 TXN_REVERSAL_MAP = {"N": 1, "R": 0}
 
-# Prime feature columns 
+# Prime feature columns
 PRIME_FEATURE_COLS = [
-    "CUSTOMER_ID", "CREDIT_LIMIT", "LEDGER_BALANCE", "AVAILABLE_LIMIT",
-    "OVERDUEAMOUNT", "STATUS", "STATUS_NAME", "ACTIVATED",
-    "Card account status ", "CREATION_DATE",
+    "CUSTOMER_ID",
+    "CREDIT_LIMIT",
+    "LEDGER_BALANCE",
+    "AVAILABLE_LIMIT",
+    "OVERDUEAMOUNT",
+    "STATUS",
+    "STATUS_NAME",
+    "ACTIVATED",
+    "Card account status ",
+    "CREATION_DATE",
 ]
 
 # Categorical columns to label-encode
 CATEGORICAL_COLS = ["STATUS", "STATUS_NAME", "ACTIVATED", "Card account status "]
 
-# Columns to drop before modeling 
+# Columns to drop before modeling
 DROP_COLS = ["CUSTOMER_ID", "CREATION_DATE", "churn"]
 
 

@@ -9,9 +9,9 @@ Usage:
 """
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
 import webbrowser
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))

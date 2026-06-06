@@ -5,8 +5,13 @@ Evaluation metrics and report generation for the Churn Module.
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix, classification_report,
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
 )
 
 
@@ -68,28 +73,33 @@ def generate_report(
     total = len(y_true)
     n_churn = int(np.sum(y_true == 1))
     n_retained = total - n_churn
-    lines.append(f"\nCLASS DISTRIBUTION (test set)")
+    lines.append("\nCLASS DISTRIBUTION (test set)")
     lines.append(f"  Retained (0): {n_retained:>7,}  ({n_retained / total * 100:.1f}%)")
     lines.append(f"  Churned  (1): {n_churn:>7,}  ({n_churn / total * 100:.1f}%)")
 
     # Confusion matrix
     cm = confusion_matrix(y_true, best_preds)
-    lines.append(f"\nCONFUSION MATRIX")
+    lines.append("\nCONFUSION MATRIX")
     lines.append(f"  TN={cm[0, 0]:>7,}   FP={cm[0, 1]:>7,}")
     lines.append(f"  FN={cm[1, 0]:>7,}   TP={cm[1, 1]:>7,}")
 
     # Classification report
-    lines.append(f"\nCLASSIFICATION REPORT")
+    lines.append("\nCLASSIFICATION REPORT")
     lines.append("-" * 40)
-    lines.append(classification_report(
-        y_true, best_preds, target_names=["Retained", "Churned"],
-    ))
+    lines.append(
+        classification_report(
+            y_true,
+            best_preds,
+            target_names=["Retained", "Churned"],
+        )
+    )
 
     lines.append("=" * 60)
     report = "\n".join(lines)
 
     if output_path:
         import os
+
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w") as f:
             f.write(report)

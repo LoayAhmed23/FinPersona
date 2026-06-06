@@ -1,24 +1,26 @@
-"""" 
+""" "
 Feature importance plots for the generated Credit Risk model.
 """
+
 import os
 import sys
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import numpy as np
-import joblib
-
-sys.path.append(os.path.abspath('.'))
 
 import config
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+sys.path.append(os.path.abspath("."))
+
 
 def plot_feature_importance():
     sns.set_theme(style="whitegrid")
     plt.rcParams["figure.figsize"] = (12, 10)
 
     try:
-        pipeline_data = joblib.load(config.MODEL_PATH)  
+        pipeline_data = joblib.load(config.MODEL_PATH)
         model = pipeline_data["model"]
         artifacts = pipeline_data["artifacts"]
         print("Loaded model and artifacts successfully.")
@@ -46,34 +48,52 @@ def plot_feature_importance():
             importance_gain_dict = model.get_score(importance_type="gain")
             importance_weight_dict = model.get_score(importance_type="weight")
 
-            df_imp = pd.DataFrame({
-                'Feature Name': feature_names
-            })
+            df_imp = pd.DataFrame({"Feature Name": feature_names})
 
-            df_imp['Importance (Gain)'] = df_imp['Feature Name'].map(importance_gain_dict).fillna(0)
-            df_imp['Importance (Weight)'] = df_imp['Feature Name'].map(importance_weight_dict).fillna(0)
-            df_imp['Feature Name'] = df_imp['Feature Name'].str.replace('num__', '').str.replace('cat__', '')
+            df_imp["Importance (Gain)"] = (
+                df_imp["Feature Name"].map(importance_gain_dict).fillna(0)
+            )
+            df_imp["Importance (Weight)"] = (
+                df_imp["Feature Name"].map(importance_weight_dict).fillna(0)
+            )
+            df_imp["Feature Name"] = (
+                df_imp["Feature Name"].str.replace("num__", "").str.replace("cat__", "")
+            )
 
-            df_imp_gain = df_imp.sort_values(by='Importance (Gain)', ascending=False).head(30)
-            df_imp_weight = df_imp.sort_values(by='Importance (Weight)', ascending=False).head(30)
+            df_imp_gain = df_imp.sort_values(
+                by="Importance (Gain)", ascending=False
+            ).head(30)
+            df_imp_weight = df_imp.sort_values(
+                by="Importance (Weight)", ascending=False
+            ).head(30)
 
             output_dir = os.path.join(config.BASE_DIR, "output")
             os.makedirs(output_dir, exist_ok=True)
 
             plt.figure(figsize=(12, 12))
-            sns.barplot(x='Importance (Gain)', y='Feature Name', data=df_imp_gain, palette='viridis')
-            plt.title('Top 30 Feature Importances (Gain)', fontsize=14)
-            plt.xlabel('Gain Importance', fontsize=12)
-            plt.ylabel('Engineered Feature', fontsize=12)
+            sns.barplot(
+                x="Importance (Gain)",
+                y="Feature Name",
+                data=df_imp_gain,
+                palette="viridis",
+            )
+            plt.title("Top 30 Feature Importances (Gain)", fontsize=14)
+            plt.xlabel("Gain Importance", fontsize=12)
+            plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, "feature_importance_gain.png"))
             plt.close()
 
             plt.figure(figsize=(12, 12))
-            sns.barplot(x='Importance (Weight)', y='Feature Name', data=df_imp_weight, palette='magma')
-            plt.title('Top 30 Feature Importances (Weight / Splits)', fontsize=14)
-            plt.xlabel('Weight Importance', fontsize=12)
-            plt.ylabel('Engineered Feature', fontsize=12)
+            sns.barplot(
+                x="Importance (Weight)",
+                y="Feature Name",
+                data=df_imp_weight,
+                palette="magma",
+            )
+            plt.title("Top 30 Feature Importances (Weight / Splits)", fontsize=14)
+            plt.xlabel("Weight Importance", fontsize=12)
+            plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, "feature_importance_split.png"))
             plt.close()
@@ -85,9 +105,9 @@ def plot_feature_importance():
         print("Model doesn't support feature importance via get_score.")
 
 
-def plot_feature_target_correlation(X: pd.DataFrame = None,
-                                    y: pd.Series = None,
-                                    top_n: int = 30):
+def plot_feature_target_correlation(
+    X: pd.DataFrame = None, y: pd.Series = None, top_n: int = 30
+):
     """Plot the Pearson correlation between each feature and the binary target.
 
     Parameters
@@ -109,10 +129,10 @@ def plot_feature_target_correlation(X: pd.DataFrame = None,
     if X is None or y is None:
         from data_loader import load_prime_data, load_transaction_data, merge_data
         from feature_engineering import (
-            engineer_prime_features,
-            engineer_transaction_features,
-            engineer_temporal_features,
             create_target,
+            engineer_prime_features,
+            engineer_temporal_features,
+            engineer_transaction_features,
         )
         from preprocessing import preprocess
 
@@ -145,19 +165,16 @@ def plot_feature_target_correlation(X: pd.DataFrame = None,
 
     # Sort by absolute correlation and keep top N
     corr_df = (
-        corr_values
-        .abs()
+        corr_values.abs()
         .sort_values(ascending=False)
         .head(top_n)
         .to_frame(name="abs_corr")
     )
     # Attach the signed value for the colour mapping
     corr_df["correlation"] = corr_values.loc[corr_df.index]
-    corr_df["Feature"] = (
-        corr_df.index
-        .str.replace("num__", "", regex=False)
-        .str.replace("cat__", "", regex=False)
-    )
+    corr_df["Feature"] = corr_df.index.str.replace(
+        "num__", "", regex=False
+    ).str.replace("cat__", "", regex=False)
 
     # ------------------------------------------------------------------
     # Plot
@@ -168,13 +185,18 @@ def plot_feature_target_correlation(X: pd.DataFrame = None,
     palette = ["#e74c3c" if v < 0 else "#2ecc71" for v in corr_df["correlation"]]
 
     sns.barplot(
-        x="correlation", y="Feature", data=corr_df,
-        palette=palette, orient="h", ax=ax,
+        x="correlation",
+        y="Feature",
+        data=corr_df,
+        palette=palette,
+        orient="h",
+        ax=ax,
     )
 
     ax.set_title(
         f"Top {len(corr_df)} Feature–Target Correlations (Pearson)",
-        fontsize=14, fontweight="bold",
+        fontsize=14,
+        fontweight="bold",
     )
     ax.set_xlabel("Pearson Correlation with Target", fontsize=12)
     ax.set_ylabel("Feature", fontsize=12)

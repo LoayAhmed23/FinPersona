@@ -3,15 +3,15 @@ Preprocessing: missing-value imputation, encoding, and scaling.
 Supports fit (training) and transform-only (scoring) modes.
 """
 
-import pandas as pd
+import config
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-import config
 
-
-def preprocess(X: pd.DataFrame, y: pd.Series = None,
-               fit: bool = True, artifacts: dict = None):
+def preprocess(
+    X: pd.DataFrame, y: pd.Series = None, fit: bool = True, artifacts: dict = None
+):
     """Preprocess features for modelling.
 
     Parameters
@@ -81,9 +81,13 @@ def preprocess(X: pd.DataFrame, y: pd.Series = None,
             if c in X.columns:
                 le = artifacts["encoders"][c]
                 # Handle unseen labels gracefully
-                X[c] = X[c].astype(str).map(
-                    lambda v, _le=le: (
-                        _le.transform([v])[0] if v in _le.classes_ else -1
+                X[c] = (
+                    X[c]
+                    .astype(str)
+                    .map(
+                        lambda v, _le=le: (
+                            _le.transform([v])[0] if v in _le.classes_ else -1
+                        )
                     )
                 )
 
@@ -123,7 +127,9 @@ def drop_uncorrelated_features(
     X_filtered: Feature matrix with low-correlation columns removed.
     dropped: Names of the dropped columns.
     """
-    threshold = threshold if threshold is not None else getattr(config, "CORR_THRESHOLD", 0.02)
+    threshold = (
+        threshold if threshold is not None else getattr(config, "CORR_THRESHOLD", 0.02)
+    )
 
     if threshold <= 0:
         print("  [corr-filter] Threshold <= 0 — skipping (all features kept).")
@@ -134,7 +140,9 @@ def drop_uncorrelated_features(
     dropped = correlations[~keep_mask].sort_values().index.tolist()
 
     if dropped:
-        print(f"  [corr-filter] Dropping {len(dropped)} feature(s) with |corr| < {threshold}:")
+        print(
+            f"  [corr-filter] Dropping {len(dropped)} feature(s) with |corr| < {threshold}:"
+        )
         for col in dropped:
             print(f"    {col:<45} |corr| = {correlations[col]:.4f}")
     else:

@@ -11,9 +11,8 @@ This mirrors the approach used in the credit and churn modules.
 import glob
 import os
 
-import pandas as pd
-
 import config
+import pandas as pd
 
 
 # --------------------------------------------------------------------------

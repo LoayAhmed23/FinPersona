@@ -1,13 +1,12 @@
 """
 Feature engineering for the Churn Prediction System.
 
-Creates transaction-level aggregations and prime-level snapshot features and, 
+Creates transaction-level aggregations and prime-level snapshot features and,
 merges the data to create a single dataset.
 """
 
-import pandas as pd
-
 import config
+import pandas as pd
 
 
 # Transaction features
@@ -30,11 +29,15 @@ def engineer_transaction_features(txn_df: pd.DataFrame) -> pd.DataFrame:
         df[amt_col] = pd.to_numeric(df[amt_col], errors="coerce").fillna(0)
 
     # --- Basic aggregations ---
-    agg = df.groupby(cid).agg(
-        total_spend=(amt_col, "sum"),
-        avg_spend=(amt_col, "mean"),
-        transaction_count=(amt_col, "count"),
-    ).reset_index()
+    agg = (
+        df.groupby(cid)
+        .agg(
+            total_spend=(amt_col, "sum"),
+            avg_spend=(amt_col, "mean"),
+            transaction_count=(amt_col, "count"),
+        )
+        .reset_index()
+    )
 
     # --- Recency (days since last transaction) ---
     if date_col in df.columns:
@@ -47,10 +50,14 @@ def engineer_transaction_features(txn_df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Reversal ratio ---
     if rev_col in df.columns:
-        reversal = df.groupby(cid).agg(
-            reversal_count=(rev_col, "sum"),
-            total_txn=(rev_col, "count"),
-        ).reset_index()
+        reversal = (
+            df.groupby(cid)
+            .agg(
+                reversal_count=(rev_col, "sum"),
+                total_txn=(rev_col, "count"),
+            )
+            .reset_index()
+        )
         reversal["reversal_ratio"] = reversal["reversal_count"] / reversal["total_txn"]
         agg = agg.merge(reversal[[cid, "reversal_ratio"]], on=cid, how="left")
     else:
@@ -103,9 +110,7 @@ def merge_all(
     cid = config.CUSTOMER_ID
 
     # Filter prime to customers with transactions
-    prime_features = prime_features[
-        prime_features[cid].isin(txn_features[cid])
-    ]
+    prime_features = prime_features[prime_features[cid].isin(txn_features[cid])]
 
     # Merge txn + prime
     merged = txn_features.merge(prime_features, on=cid, how="left")

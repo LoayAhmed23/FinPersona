@@ -2,15 +2,14 @@
 Model training, hyperparameter tuning, and saving the best trained model.
 """
 
-import joblib
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
-
 import config
+import joblib
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 
 
 # Model definitions
@@ -25,29 +24,43 @@ def get_classifiers(y_train=None):
 
     return {
         "Logistic Regression": LogisticRegression(
-            class_weight="balanced", random_state=config.RANDOM_STATE, n_jobs=-1,
+            class_weight="balanced",
+            random_state=config.RANDOM_STATE,
+            n_jobs=-1,
             max_iter=1000,
         ),
         "Decision Tree": DecisionTreeClassifier(
-            max_depth=6, class_weight="balanced", random_state=config.RANDOM_STATE,
+            max_depth=6,
+            class_weight="balanced",
+            random_state=config.RANDOM_STATE,
         ),
         "Random Forest": RandomForestClassifier(
-            n_estimators=300, max_depth=10, class_weight="balanced",
-            random_state=config.RANDOM_STATE, n_jobs=-1,
+            n_estimators=300,
+            max_depth=10,
+            class_weight="balanced",
+            random_state=config.RANDOM_STATE,
+            n_jobs=-1,
         ),
         "XGBoost": XGBClassifier(
-            n_estimators=300, learning_rate=0.05, max_depth=4,
-            subsample=0.8, colsample_bytree=0.8,
-            scale_pos_weight=spw, eval_metric="logloss",
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=4,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            scale_pos_weight=spw,
+            eval_metric="logloss",
             random_state=config.RANDOM_STATE,
         ),
         "LightGBM": LGBMClassifier(
-            n_estimators=300, learning_rate=0.05, num_leaves=31,
-            class_weight="balanced", random_state=config.RANDOM_STATE,
-            n_jobs=-1, verbose=-1,
+            n_estimators=300,
+            learning_rate=0.05,
+            num_leaves=31,
+            class_weight="balanced",
+            random_state=config.RANDOM_STATE,
+            n_jobs=-1,
+            verbose=-1,
         ),
     }
-
 
 
 # Training
@@ -65,7 +78,7 @@ def train_classifiers(X_train, y_train, X_test, y_test) -> dict:
         preds = clf.predict(X_test)
         probs = clf.predict_proba(X_test)[:, 1]
         results[name] = {"model": clf, "preds": preds, "probs": probs}
-        print(f"    Done.")
+        print("    Done.")
 
     return results
 
@@ -77,7 +90,9 @@ def tune_models(X_train, y_train) -> dict:
     Returns dict: {name: {"model": best_estimator, "best_params": dict}}
     """
     skf = StratifiedKFold(
-        n_splits=config.CV_FOLDS, shuffle=True, random_state=config.RANDOM_STATE,
+        n_splits=config.CV_FOLDS,
+        shuffle=True,
+        random_state=config.RANDOM_STATE,
     )
 
     spw = 1.0
@@ -89,13 +104,15 @@ def tune_models(X_train, y_train) -> dict:
     tuning_jobs = {
         "Random Forest": {
             "estimator": RandomForestClassifier(
-                random_state=config.RANDOM_STATE, n_jobs=-1,
+                random_state=config.RANDOM_STATE,
+                n_jobs=-1,
             ),
             "params": config.RF_GRID_PARAMS,
         },
         "XGBoost": {
             "estimator": XGBClassifier(
-                eval_metric="logloss", scale_pos_weight=spw,
+                eval_metric="logloss",
+                scale_pos_weight=spw,
                 random_state=config.RANDOM_STATE,
             ),
             "params": config.XGB_GRID_PARAMS,
@@ -116,7 +133,10 @@ def tune_models(X_train, y_train) -> dict:
         grid.fit(X_train, y_train)
         print(f"    Best {config.CV_SCORING}: {grid.best_score_:.4f}")
         print(f"    Best params: {grid.best_params_}")
-        results[name] = {"model": grid.best_estimator_, "best_params": grid.best_params_}
+        results[name] = {
+            "model": grid.best_estimator_,
+            "best_params": grid.best_params_,
+        }
 
     return results
 
@@ -125,6 +145,7 @@ def tune_models(X_train, y_train) -> dict:
 def save_model(model, artifacts: dict, path: str = None):
     """Persist model and preprocessing artifacts."""
     import os
+
     path = path or config.MODEL_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
     payload = {"model": model, "artifacts": artifacts}

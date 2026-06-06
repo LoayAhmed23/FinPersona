@@ -8,13 +8,15 @@ Provides a premium web interface to:
   3. Look up individual customer churn risk
 """
 
-from flask import Flask, render_template, request, jsonify
+import glob
+import json
 import os
 import sys
-import json
-import glob
 import threading
 import traceback
+
+import config
+from flask import Flask, jsonify, render_template, request
 
 # Ensure the churn module directory is on sys.path so local imports work
 CHURN_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +28,6 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CHURN_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import config
 
 app = Flask(__name__)
 
@@ -38,9 +39,9 @@ STATE_JSON = os.path.join(SAVE_DIR, "churn_app_state.json")
 
 # ── Global pipeline state ──
 pipeline_state = {
-    "status": "idle",           # idle | training | trained | error
+    "status": "idle",  # idle | training | trained | error
     "training_logs": [],
-    "metrics": None,            # model comparison DataFrame as dict
+    "metrics": None,  # model comparison DataFrame as dict
     "error": None,
     "progress_pct": 0,
     # Data stats
@@ -57,8 +58,9 @@ pipeline_state = {
 
 def _save_state_meta():
     """Persist lightweight state for UI reload."""
-    saveable = {k: v for k, v in pipeline_state.items()
-                if k not in ("df", "X", "y", "model")}
+    saveable = {
+        k: v for k, v in pipeline_state.items() if k not in ("df", "X", "y", "model")
+    }
     try:
         with open(STATE_JSON, "w") as f:
             json.dump(saveable, f, default=str)
@@ -80,7 +82,9 @@ def _load_state_meta():
     if os.path.exists(config.MODEL_PATH):
         status_order = ["idle", "training", "trained", "error"]
         cur = pipeline_state["status"]
-        if cur in status_order and status_order.index("trained") > status_order.index(cur):
+        if cur in status_order and status_order.index("trained") > status_order.index(
+            cur
+        ):
             pipeline_state["status"] = "trained"
         pipeline_state["training_logs"] = pipeline_state.get("training_logs") or [
             "[Loaded from cache] Trained model found on disk."
@@ -99,6 +103,7 @@ _load_state_meta()
 
 # ── Data-cleaning helper ──
 
+
 def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
     """Ensure cleaned data directories exist; run cleaning pipelines if needed.
 
@@ -116,6 +121,7 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
     -------
     (raw_prime_dir, cleaned_prime_dir, cleaned_txn_dir)
     """
+
     def _log(msg):
         if log_fn:
             log_fn(msg)
@@ -137,35 +143,45 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
 
     # ── Prime ──
     raw_prime, cleaned_prime = _resolve_raw_and_cleaned(
-        prime_dir, default_raw_prime, config.CLEANED_PRIME_DATA_DIR,
+        prime_dir,
+        default_raw_prime,
+        config.CLEANED_PRIME_DATA_DIR,
     )
 
-    has_prime = (
-        os.path.isdir(cleaned_prime)
-        and glob.glob(os.path.join(cleaned_prime, "*_active.csv"))
+    has_prime = os.path.isdir(cleaned_prime) and glob.glob(
+        os.path.join(cleaned_prime, "*_active.csv")
     )
     if not has_prime:
-        _log(f"[AUTO-CLEAN] '{cleaned_prime}' not found or empty — running prime cleaning pipeline ...")
+        _log(
+            f"[AUTO-CLEAN] '{cleaned_prime}' not found or empty — running prime cleaning pipeline ..."
+        )
         _log(f"[AUTO-CLEAN]   raw dir -> {raw_prime}")
         from data_cleaning.prime_id_creation import run as run_prime_cleaning
+
         run_prime_cleaning(input_dir=raw_prime, output_dir=cleaned_prime)
         _log(f"[AUTO-CLEAN] Prime cleaning complete -> {cleaned_prime}")
     else:
-        _log(f"[AUTO-CLEAN] Found existing cleaned prime data at '{cleaned_prime}' — skipping.")
+        _log(
+            f"[AUTO-CLEAN] Found existing cleaned prime data at '{cleaned_prime}' — skipping."
+        )
 
     # ── Transaction ──
     raw_txn, cleaned_txn = _resolve_raw_and_cleaned(
-        txn_dir, default_raw_txn, config.CLEANED_TRANSACTION_DATA_DIR,
+        txn_dir,
+        default_raw_txn,
+        config.CLEANED_TRANSACTION_DATA_DIR,
     )
 
-    has_txn = (
-        os.path.isdir(cleaned_txn)
-        and glob.glob(os.path.join(cleaned_txn, "*.csv"))
+    has_txn = os.path.isdir(cleaned_txn) and glob.glob(
+        os.path.join(cleaned_txn, "*.csv")
     )
     if not has_txn:
-        _log(f"[AUTO-CLEAN] '{cleaned_txn}' not found or empty — running transaction cleaning pipeline ...")
+        _log(
+            f"[AUTO-CLEAN] '{cleaned_txn}' not found or empty — running transaction cleaning pipeline ..."
+        )
         _log(f"[AUTO-CLEAN]   raw dir -> {raw_txn}")
         from data_cleaning.transaction_id_mapping import run as run_txn_cleaning
+
         run_txn_cleaning(
             prime_cleaned_dir=cleaned_prime,
             transaction_input_dir=raw_txn,
@@ -173,12 +189,15 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
         )
         _log(f"[AUTO-CLEAN] Transaction cleaning complete -> {cleaned_txn}")
     else:
-        _log(f"[AUTO-CLEAN] Found existing cleaned transaction data at '{cleaned_txn}' — skipping.")
+        _log(
+            f"[AUTO-CLEAN] Found existing cleaned transaction data at '{cleaned_txn}' — skipping."
+        )
 
     return raw_prime, cleaned_prime, cleaned_txn
 
 
 # ── Routes ──
+
 
 @app.route("/")
 def index():
@@ -188,20 +207,22 @@ def index():
 @app.route("/api/status")
 def api_status():
     """Return current pipeline state (polled by the frontend)."""
-    return jsonify({
-        "status": pipeline_state["status"],
-        "training_logs": pipeline_state["training_logs"],
-        "metrics": pipeline_state["metrics"],
-        "error": pipeline_state["error"],
-        "progress_pct": pipeline_state["progress_pct"],
-        "total_samples": pipeline_state["total_samples"],
-        "n_features": pipeline_state["n_features"],
-        "churn_rate": pipeline_state["churn_rate"],
-        "n_churned": pipeline_state["n_churned"],
-        "n_retained": pipeline_state["n_retained"],
-        "best_model_name": pipeline_state["best_model_name"],
-        "report_text": pipeline_state.get("report_text", ""),
-    })
+    return jsonify(
+        {
+            "status": pipeline_state["status"],
+            "training_logs": pipeline_state["training_logs"],
+            "metrics": pipeline_state["metrics"],
+            "error": pipeline_state["error"],
+            "progress_pct": pipeline_state["progress_pct"],
+            "total_samples": pipeline_state["total_samples"],
+            "n_features": pipeline_state["n_features"],
+            "churn_rate": pipeline_state["churn_rate"],
+            "n_churned": pipeline_state["n_churned"],
+            "n_retained": pipeline_state["n_retained"],
+            "best_model_name": pipeline_state["best_model_name"],
+            "report_text": pipeline_state.get("report_text", ""),
+        }
+    )
 
 
 @app.route("/api/train", methods=["POST"])
@@ -216,20 +237,22 @@ def api_train():
     txn_dir = data.get("txn_dir", "").strip() or None
 
     # Reset state
-    pipeline_state.update({
-        "status": "training",
-        "training_logs": [],
-        "metrics": None,
-        "error": None,
-        "progress_pct": 5,
-        "total_samples": 0,
-        "n_features": 0,
-        "churn_rate": 0.0,
-        "n_churned": 0,
-        "n_retained": 0,
-        "best_model_name": "",
-        "report_text": "",
-    })
+    pipeline_state.update(
+        {
+            "status": "training",
+            "training_logs": [],
+            "metrics": None,
+            "error": None,
+            "progress_pct": 5,
+            "total_samples": 0,
+            "n_features": 0,
+            "churn_rate": 0.0,
+            "n_churned": 0,
+            "n_retained": 0,
+            "best_model_name": "",
+            "report_text": "",
+        }
+    )
 
     def _run():
         try:
@@ -245,16 +268,25 @@ def api_train():
             pipeline_state["progress_pct"] = 7
             log("[PRE-CHECK] Verifying cleaned data directories ...")
             raw_prime, cleaned_prime, cleaned_txn = _ensure_cleaned_dirs(
-                prime_dir, txn_dir, log_fn=log,
+                prime_dir,
+                txn_dir,
+                log_fn=log,
             )
 
             # Step 1: Churn labeling (uses RAW prime files)
             pipeline_state["progress_pct"] = 10
             log("[STEP 1/7] Creating churn labels ...")
-            from data_loader import create_churn_labels, load_transaction_data, load_prime_data
+            from data_loader import (
+                create_churn_labels,
+                load_prime_data,
+                load_transaction_data,
+            )
+
             churn_labels = create_churn_labels(raw_prime)
             n_churned_label = int(churn_labels[config.TARGET_COL].sum())
-            log(f"  Labeled {len(churn_labels):,} customers — {n_churned_label:,} churned")
+            log(
+                f"  Labeled {len(churn_labels):,} customers — {n_churned_label:,} churned"
+            )
 
             # Step 2: Load data (uses CLEANED dirs)
             pipeline_state["progress_pct"] = 20
@@ -267,7 +299,12 @@ def api_train():
             # Step 3: Feature engineering
             pipeline_state["progress_pct"] = 35
             log("[STEP 3/7] Engineering features ...")
-            from feature_engineering import engineer_transaction_features, engineer_prime_features, merge_all
+            from feature_engineering import (
+                engineer_prime_features,
+                engineer_transaction_features,
+                merge_all,
+            )
+
             txn_features = engineer_transaction_features(txn_df)
             prime_features = engineer_prime_features(prime_df)
             log(f"  Txn features: {txn_features.shape}")
@@ -283,6 +320,7 @@ def api_train():
             pipeline_state["progress_pct"] = 55
             log("[STEP 5/7] Preprocessing ...")
             from preprocessing import preprocess
+
             X, y, artifacts = preprocess(final_df, fit=True)
 
             n_total = len(y)
@@ -296,20 +334,27 @@ def api_train():
             pipeline_state["n_retained"] = n_retained
             pipeline_state["churn_rate"] = churn_rate
 
-            log(f"  Samples: {n_total:,} | Features: {X.shape[1]} | Churn rate: {churn_rate}%")
+            log(
+                f"  Samples: {n_total:,} | Features: {X.shape[1]} | Churn rate: {churn_rate}%"
+            )
 
             # Step 6: Train/test split + training
             pipeline_state["progress_pct"] = 65
             log("[STEP 6/7] Training models ...")
 
             from sklearn.model_selection import train_test_split
+
             X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=config.TEST_SIZE,
-                random_state=config.RANDOM_STATE, stratify=y,
+                X,
+                y,
+                test_size=config.TEST_SIZE,
+                random_state=config.RANDOM_STATE,
+                stratify=y,
             )
             log(f"  Train: {len(X_train):,} | Test: {len(X_test):,}")
 
             from model import train_classifiers, tune_models
+
             results = train_classifiers(X_train, y_train, X_test, y_test)
 
             for name in results:
@@ -324,7 +369,9 @@ def api_train():
                     preds = model.predict(X_test)
                     probs = model.predict_proba(X_test)[:, 1]
                     results[f"{name} (tuned)"] = {
-                        "model": model, "preds": preds, "probs": probs,
+                        "model": model,
+                        "preds": preds,
+                        "probs": probs,
                     }
                     log(f"  ✓ {name} (tuned) — best params: {info['best_params']}")
 
@@ -333,6 +380,7 @@ def api_train():
             log("[STEP 7/7] Evaluating models ...")
 
             from evaluation import evaluate_all, generate_report
+
             metrics_df = evaluate_all(y_test, results)
 
             # Convert to serializable format
@@ -355,25 +403,32 @@ def api_train():
 
             # Generate report
             report = generate_report(
-                metrics_df, y_test, best_name, best_result["preds"],
+                metrics_df,
+                y_test,
+                best_name,
+                best_result["preds"],
                 output_path=config.REPORT_PATH,
             )
             pipeline_state["report_text"] = report
 
             # Save best model
             from model import save_model
+
             save_model(best_result["model"], artifacts)
             log(f"\n  Model saved to {config.MODEL_PATH}")
 
             # Save scores
             import pandas as pd
+
             all_probs = best_result["model"].predict_proba(X)[:, 1]
             all_preds = (all_probs >= config.THRESHOLD).astype(int)
-            scores_df = pd.DataFrame({
-                config.CUSTOMER_ID: final_df[config.CUSTOMER_ID].values,
-                "churn_probability": all_probs,
-                "predicted_churn": all_preds,
-            })
+            scores_df = pd.DataFrame(
+                {
+                    config.CUSTOMER_ID: final_df[config.CUSTOMER_ID].values,
+                    "churn_probability": all_probs,
+                    "predicted_churn": all_preds,
+                }
+            )
             scores_df.to_csv(config.SCORES_PATH, index=False)
             log(f"  Scores saved to {config.SCORES_PATH}")
 
@@ -406,13 +461,19 @@ def api_lookup():
 
     try:
         import pandas as pd
+
         scores = pd.read_csv(config.SCORES_PATH)
         # Try matching as string (flexible)
         scores[config.CUSTOMER_ID] = scores[config.CUSTOMER_ID].astype(str).str.strip()
         match = scores[scores[config.CUSTOMER_ID] == customer_id_raw]
 
         if match.empty:
-            return jsonify({"error": f"Customer ID {customer_id_raw} not found in scores."}), 404
+            return (
+                jsonify(
+                    {"error": f"Customer ID {customer_id_raw} not found in scores."}
+                ),
+                404,
+            )
 
         row = match.iloc[0]
         prob = round(float(row["churn_probability"]) * 100, 2)
@@ -428,13 +489,15 @@ def api_lookup():
         else:
             risk_tier = "Low"
 
-        return jsonify({
-            "customer_id": customer_id_raw,
-            "churn_probability": prob,
-            "predicted_churn": label,
-            "risk_tier": risk_tier,
-            "label_text": "Likely to Churn" if label == 1 else "Likely to Stay",
-        })
+        return jsonify(
+            {
+                "customer_id": customer_id_raw,
+                "churn_probability": prob,
+                "predicted_churn": label,
+                "risk_tier": risk_tier,
+                "label_text": "Likely to Churn" if label == 1 else "Likely to Stay",
+            }
+        )
     except Exception as e:
         return jsonify({"error": f"{str(e)}\n\n{traceback.format_exc()}"}), 500
 
@@ -448,6 +511,7 @@ def api_customers():
     q = request.args.get("q", "").strip()
     try:
         import pandas as pd
+
         scores = pd.read_csv(config.SCORES_PATH)
         ids = scores[config.CUSTOMER_ID].dropna().astype(str).str.strip().tolist()
         if q:
@@ -485,7 +549,9 @@ def api_browse():
     try:
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         selected = result.stdout.strip()
         if selected:
