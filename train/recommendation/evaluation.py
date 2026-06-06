@@ -8,7 +8,6 @@ from sklearn.metrics import (
 
 
 def optimize_xgboost_thresholds(valid_targets, val_proba_dict, Y_val):
-    """Optimizes decision thresholds for XGBoost on the validation set."""
     optimal_thresholds = {}
     for product in valid_targets:
         val_proba = val_proba_dict[product]
@@ -26,7 +25,6 @@ def optimize_xgboost_thresholds(valid_targets, val_proba_dict, Y_val):
 
 
 def optimize_cbf_thresholds(product_cols, score_matrix_masked, test_user_mask, test_np):
-    """Optimizes similarity thresholds for CBF using F2-score."""
     cbf_thresholds = {}
     thresholds_to_try = np.arange(0.05, 1.55, 0.05)
 
@@ -49,7 +47,6 @@ def optimize_cbf_thresholds(product_cols, score_matrix_masked, test_user_mask, t
 def evaluate_xgboost_metrics(
     Y_test, Y_pred, valid_targets, Y_train, optimal_thresholds
 ):
-    """Calculates evaluation metrics for the XGBoost predictions."""
     exact_acc = accuracy_score(Y_test, Y_pred)
     micro_p, micro_r, micro_f1, _ = precision_recall_fscore_support(
         Y_test, Y_pred, average="micro", zero_division=0

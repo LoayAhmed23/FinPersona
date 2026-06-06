@@ -1,13 +1,3 @@
-"""
-Data loading utilities for the Recommendation module.
-
-Assumes that prime and transaction data have already been cleaned by the
-centralized cleaning pipeline and are available as CSVs under the paths
-configured in config.PRIME_DATA_DIR and config.TRANSACTION_DATA_DIR.
-
-This mirrors the approach used in the credit and churn modules.
-"""
-
 import glob
 import os
 
@@ -15,11 +5,8 @@ import config
 import pandas as pd
 
 
-# --------------------------------------------------------------------------
-# Helpers
-# --------------------------------------------------------------------------
+
 def _parse_float_col(series: pd.Series) -> pd.Series:
-    """Clean commas and cast to float."""
     return pd.to_numeric(
         series.astype(str).str.replace(",", "", regex=False),
         errors="coerce",
@@ -27,31 +14,14 @@ def _parse_float_col(series: pd.Series) -> pd.Series:
 
 
 def _parse_int_col(series: pd.Series) -> pd.Series:
-    """Clean commas and cast to nullable Int64."""
     return pd.to_numeric(
         series.astype(str).str.replace(",", "", regex=False),
         errors="coerce",
     ).astype("Int64")
 
 
-# --------------------------------------------------------------------------
-# Prime data
-# --------------------------------------------------------------------------
+
 def load_prime_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:
-    """Load and concatenate all *active* prime CSV files.
-
-    Parameters
-    ----------
-    data_dir : str, optional
-        Directory containing cleaned prime CSVs.  Defaults to
-        ``config.PRIME_DATA_DIR``.
-    logs : list, optional
-        Mutable list for log messages.
-
-    Returns
-    -------
-    pd.DataFrame
-    """
     if logs is None:
         logs = []
 
@@ -63,7 +33,7 @@ def load_prime_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:
 
     files = sorted(glob.glob(os.path.join(data_dir, "*active.csv")))
     if not files:
-        # Fallback: try all CSVs in the directory
+        # try all CSVs in the directory
         files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
     if not files:
         raise FileNotFoundError(f"No CSV files found in '{data_dir}'.")
@@ -78,7 +48,6 @@ def load_prime_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:
 
     prime_df = pd.concat(frames, ignore_index=True)
 
-    # ---------- Cast columns to proper types ----------
     for col in config.PRIME_STRING_COLS:
         if col in prime_df.columns:
             prime_df[col] = prime_df[col].astype("string")
@@ -99,25 +68,7 @@ def load_prime_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:
     return prime_df
 
 
-# --------------------------------------------------------------------------
-# Transaction data
-# --------------------------------------------------------------------------
 def load_transaction_data(data_dir: str = None, logs: list = None) -> pd.DataFrame:
-    """Load and concatenate all cleaned transaction CSV files.
-
-    Parameters
-    ----------
-    data_dir : str, optional
-        Directory containing cleaned transaction CSVs.  Defaults to
-        ``config.TRANSACTION_DATA_DIR``.
-    logs : list, optional
-        Mutable list for log messages.
-
-    Returns
-    -------
-    pd.DataFrame or None
-        ``None`` if no transaction files are found (non-fatal).
-    """
     if logs is None:
         logs = []
 
@@ -129,7 +80,7 @@ def load_transaction_data(data_dir: str = None, logs: list = None) -> pd.DataFra
     logs.append("=" * 60)
 
     all_files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
-    # Skip any leftover "_missing_id" files
+    # Skip "_missing_id" files
     files = [f for f in all_files if not f.endswith("_missing_id.csv")]
 
     if not files:
@@ -146,7 +97,6 @@ def load_transaction_data(data_dir: str = None, logs: list = None) -> pd.DataFra
 
     txn_df = pd.concat(frames, ignore_index=True)
 
-    # ---------- Cast columns to proper types ----------
     for col in config.TXN_STRING_COLS:
         if col in txn_df.columns:
             txn_df[col] = txn_df[col].astype("string")

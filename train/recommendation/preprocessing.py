@@ -3,7 +3,6 @@ import pandas as pd
 
 
 def fill_missing_values(profile):
-    """Fills missing values in engineered features."""
     mcc_cols = [
         col
         for col in profile.columns
@@ -24,7 +23,6 @@ def fill_missing_values(profile):
 
 
 def one_hot_encode_categoricals(profile):
-    """One-hot encodes AGE_GROUP, GENDER, and BRANCH_ID."""
     if "AGE_GROUP" in profile.columns:
         age_group_dummies = pd.get_dummies(
             profile["AGE_GROUP"], prefix="AGE_GROUP", drop_first=False
@@ -53,7 +51,6 @@ def one_hot_encode_categoricals(profile):
 
 
 def drop_unneeded_columns(profile, prime_only=False, txn_only=False, final_stage=False):
-    """Drops obsolete columns according to config settings."""
     if prime_only:
         existing_cols_to_drop = [
             col for col in config.PRIME_COLUMNS_TO_DROP if col in profile.columns
@@ -78,13 +75,11 @@ def drop_unneeded_columns(profile, prime_only=False, txn_only=False, final_stage
             col for col in final_columns_to_drop if col in profile.columns
         ]
         profile = profile.drop(columns=existing_cols_to_drop)
-        # Drop BRANCH_ID just in case it wasn't dropped after OHE
         profile = profile.drop(columns=["BRANCH_ID"], errors="ignore")
     return profile
 
 
 def filter_uncorrelated_features(profile, logs):
-    """Drops features with low correlation to products."""
     product_cols = [col for col in profile.columns if col.startswith("HAS_PROD_")]
     exclude_cols_corr = ["CUSTOMER_ID"] + product_cols
     feature_cols = [col for col in profile.columns if col not in exclude_cols_corr]
@@ -115,7 +110,6 @@ def filter_uncorrelated_features(profile, logs):
 
 
 def drop_low_volume_products(profile, logs):
-    """Drops products with fewer than 100 holders."""
     current_product_cols = [
         col for col in profile.columns if col.startswith("HAS_PROD_")
     ]
@@ -133,7 +127,6 @@ def drop_low_volume_products(profile, logs):
 
 
 def preprocess_pipeline(profile, logs):
-    """Runs all preprocessing steps on the Customer 360 profile."""
     profile = fill_missing_values(profile)
     profile = one_hot_encode_categoricals(profile)
     profile = drop_unneeded_columns(

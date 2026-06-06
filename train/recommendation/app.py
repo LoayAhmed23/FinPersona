@@ -1,13 +1,3 @@
-"""
-app.py
-======
-Flask GUI for the HOLA Product Recommendation Pipeline.
-Provides a premium web interface to:
-1. Run Preprocessing pipeline on a data directory
-2. Train XGBoost models with threshold tuning
-3. Predict recommended products for a specific customer
-"""
-
 import glob
 import json
 import os
@@ -21,12 +11,10 @@ import numpy as np
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
-# Ensure the recommendation module directory is on sys.path so local imports work
 REC_DIR = os.path.dirname(os.path.abspath(__file__))
 if REC_DIR not in sys.path:
     sys.path.insert(0, REC_DIR)
 
-# Also ensure the project root is on sys.path so data_cleaning can be imported
 PROJECT_ROOT = os.path.abspath(os.path.join(REC_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -34,14 +22,12 @@ if PROJECT_ROOT not in sys.path:
 
 app = Flask(__name__)
 
-# ── Persistence paths (from config) ──
 PREPROCESSED_CSV = config.PREPROCESSED_CSV
 XGB_MODELS_PKL = config.XGB_MODELS_PKL
 XGB_META_JSON = config.XGB_META_JSON
 CBF_SIM_PKL = config.CBF_SIM_PKL
 CBF_META_JSON = config.CBF_META_JSON
 
-# ── Global state ──
 pipeline_state = {
     "status": "idle",  # idle | running_PREPROCESSING | PREPROCESSING_done | training | trained | error
     "PREPROCESSING_logs": [],
@@ -73,9 +59,8 @@ pipeline_state = {
 }
 
 
+# Load previous state If the pipelined was already run once
 def load_saved_state():
-    """Load previously saved artifacts on server startup."""
-    # 1. Load Preprocessed CSV
     if os.path.exists(PREPROCESSED_CSV):
         try:
             df = pd.read_csv(PREPROCESSED_CSV)
@@ -137,7 +122,6 @@ def load_saved_state():
             print(f"[Startup] Failed to load CBF model: {e}")
 
 
-# Auto-load on import
 load_saved_state()
 
 
@@ -148,7 +132,6 @@ def index():
 
 @app.route("/api/status")
 def api_status():
-    """Return current pipeline state (polled by the frontend)."""
     return jsonify(
         {
             "status": pipeline_state["status"],
@@ -174,25 +157,7 @@ def api_status():
     )
 
 
-# ── Data-cleaning helper ──
-
-
 def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
-    """Check for cleaned data directories; run cleaning pipelines if missing.
-
-    Accepts either the *raw* directory (e.g. ``data/prime``) **or** the
-    *cleaned* directory (``data/prime_cleaned``) — the function normalises
-    both to the same ``(raw, cleaned)`` pair.
-
-    When no directory is provided (None), the function checks the *default*
-    cleaned directories from ``config``.  If those are empty/missing it runs
-    the cleaning pipelines using the default raw data directories.
-
-    Returns
-    -------
-    (prime_cleaned_dir, txn_cleaned_dir)
-    """
-
     def _log(msg):
         if log_fn:
             log_fn(msg)
@@ -208,7 +173,6 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
         else:
             return default_raw, default_cleaned
 
-    # ── Prime ──
     raw_prime, prime_cleaned = _resolve_raw_and_cleaned(
         prime_dir,
         config.RAW_PRIME_DATA_DIR,
@@ -232,7 +196,6 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
             f"[AUTO-CLEAN] Found existing cleaned prime data at '{prime_cleaned}' — skipping."
         )
 
-    # ── Transaction ──
     raw_txn, txn_cleaned = _resolve_raw_and_cleaned(
         txn_dir,
         config.RAW_TRANSACTION_DATA_DIR,
@@ -265,11 +228,9 @@ def _ensure_cleaned_dirs(prime_dir, txn_dir, log_fn=None):
 
 @app.route("/api/browse_directory")
 def api_browse_directory():
-    """Opens a native OS folder picker and returns the selected path."""
     import tkinter as tk
     from tkinter import filedialog
 
-    # Setup tkinter
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -280,7 +241,6 @@ def api_browse_directory():
 
 @app.route("/api/run_PREPROCESSING", methods=["POST"])
 def api_run_PREPROCESSING():
-    """Kick off the Preprocessing pipeline in a background thread."""
     if pipeline_state["status"] not in (
         "idle",
         "PREPROCESSING_done",
@@ -293,7 +253,6 @@ def api_run_PREPROCESSING():
     prime_dir = data.get("prime_dir", "").strip() or None
     transaction_dir = data.get("transaction_dir", "").strip() or None
 
-    # Reset state
     pipeline_state.update(
         {
             "status": "running_PREPROCESSING",
@@ -316,9 +275,7 @@ def api_run_PREPROCESSING():
     def _run():
         try:
             logs = pipeline_state["PREPROCESSING_logs"]
-
-            # ── Auto-clean raw directories if needed ──
-            logs.append("[PRE-CHECK] Verifying cleaned data directories ...")
+            logs.append("Verifying cleaned data directories")
             pipeline_state["progress_pct"] = 15
             prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
                 prime_dir,
@@ -329,9 +286,7 @@ def api_run_PREPROCESSING():
             from pipeline import run_PREPROCESSING_pipeline
 
             pipeline_state["progress_pct"] = 20
-            df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(
-                prime_cleaned, txn_cleaned, logs=logs
-            )
+            df, logs, product_cols, feature_cols = run_PREPROCESSING_pipeline(prime_cleaned, txn_cleaned, logs=logs)
             pipeline_state["df"] = df
             pipeline_state["PREPROCESSING_logs"] = logs
             pipeline_state["customer_count"] = len(df)
@@ -340,7 +295,6 @@ def api_run_PREPROCESSING():
             pipeline_state["status"] = "PREPROCESSING_done"
             pipeline_state["progress_pct"] = 100
 
-            # Save CSV for next restart
             df.to_csv(PREPROCESSED_CSV, index=False)
             logs.append(f"[Saved] Preprocessed CSV cached to {PREPROCESSED_CSV}")
         except Exception as e:
@@ -357,7 +311,6 @@ def api_run_PREPROCESSING():
 
 @app.route("/api/train", methods=["POST"])
 def api_train():
-    """Kick off XGBoost training in a background thread."""
     if pipeline_state["df"] is None:
         return jsonify({"error": "No data loaded. Run Preprocessed first."}), 400
     if pipeline_state["status"] == "training":
@@ -392,8 +345,7 @@ def api_train():
             pipeline_state["status"] = "trained"
             pipeline_state["progress_pct"] = 100
 
-            # Save models for next restart
-            with open(XGB_MODELS_PKL, "wb") as f:
+            with open(XGB_MODELS_PKL, "wb") as f: # save model
                 pickle.dump(models, f)
             meta = {
                 "thresholds": thresholds,
@@ -418,7 +370,6 @@ def api_train():
 
 @app.route("/api/train_cbf", methods=["POST"])
 def api_train_cbf():
-    """Kick off CBF training in a background thread."""
     if pipeline_state["df"] is None:
         return jsonify({"error": "No data loaded. Run Preprocessed first."}), 400
     if pipeline_state["cbf_status"] == "training_cbf":
@@ -449,7 +400,7 @@ def api_train_cbf():
             pipeline_state["cbf_status"] = "cbf_trained"
             pipeline_state["cbf_progress_pct"] = 100
 
-            # Save CBF model for next restart
+            # Save CBF model
             with open(CBF_SIM_PKL, "wb") as f:
                 pickle.dump({"sim_matrix": sim_matrix}, f)
             cbf_meta = {
@@ -474,7 +425,6 @@ def api_train_cbf():
 
 @app.route("/api/predict", methods=["POST"])
 def api_predict():
-    """Predict products for a given customer ID."""
     if pipeline_state["status"] != "trained":
         return (
             jsonify({"error": "Model not trained yet. Complete training first."}),
@@ -530,7 +480,6 @@ def api_predict():
 
 @app.route("/api/predict_cbf", methods=["POST"])
 def api_predict_cbf():
-    """Predict products via CBF for a given customer ID."""
     if pipeline_state["status"] != "trained":
         return jsonify({"error": "Model not trained yet."}), 400
     if (
@@ -575,7 +524,6 @@ def api_predict_cbf():
 
 @app.route("/api/customers")
 def api_customers():
-    """Return a sample of customer IDs for the autocomplete."""
     if pipeline_state["df"] is None:
         return jsonify({"customers": []})
 
@@ -591,11 +539,6 @@ def api_customers():
 
 @app.route("/api/predict_batch", methods=["POST"])
 def api_predict_batch():
-    """Run batch prediction on new customer data.
-
-    Accepts cleaned *or* raw directories — _ensure_cleaned_dirs will
-    auto-run the cleaning pipeline if needed.
-    """
     if pipeline_state["models"] is None:
         return (
             jsonify(
@@ -625,8 +568,7 @@ def api_predict_batch():
         try:
             live_logs = pipeline_state["batch_logs"]
 
-            # ── Auto-clean raw directories if needed ──
-            live_logs.append("[PRE-CHECK] Verifying cleaned data directories ...")
+            live_logs.append("Verifying cleaned data directories")
             pipeline_state["batch_progress_pct"] = 10
             prime_cleaned, txn_cleaned = _ensure_cleaned_dirs(
                 prime_dir,
@@ -674,7 +616,6 @@ def api_predict_batch():
 
 @app.route("/api/download_batch")
 def api_download_batch():
-    """Download the batch predictions CSV."""
     output_path = pipeline_state.get("batch_output_path")
     if not output_path or not os.path.exists(output_path):
         return jsonify({"error": "No batch predictions available."}), 404

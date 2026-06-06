@@ -20,39 +20,16 @@ from preprocessing import preprocess_pipeline
 
 
 def run_PREPROCESSING_pipeline(prime_dir=None, transaction_dir=None, logs=None):
-    """
-    Runs the full Preprocessing pipeline.
-
-    Reads already-cleaned prime and transaction CSVs from the given
-    directories (defaulting to the centralized paths in config).
-
-    Returns (final_customer_profile DataFrame, logs list, product_cols list, feature_cols list).
-    """
     if logs is None:
         logs = []
 
-    # Phase 1: Load cleaned prime data
     prime_df = load_prime_data(prime_dir, logs)
-
-    # Phase 2: Load cleaned transaction data
     transaction_df = load_transaction_data(transaction_dir, logs)
-
-    # User-item matrix
     prime_df, _ = build_user_item_matrix(prime_df, logs)
-
-    # RFM Features
     rfm_features = build_rfm_features(transaction_df)
-
-    # MCC Spend
     mcc_spend = build_mcc_spend(transaction_df)
-
-    # Foreign Transactions
     foreign_agg = build_foreign_trxn_features(transaction_df)
-
-    # Demographics
     prime_df = build_demographics_features(prime_df)
-
-    # Final Merge
     profile = merge_all_features(prime_df, rfm_features, mcc_spend, foreign_agg, logs)
 
     # Preprocessing Pipeline (clean, drop, encode, filter)
@@ -76,14 +53,7 @@ def predict_new_data(
     logs=None,
     progress_callback=None,
 ):
-    """
-    Processes new cleaned prime/transaction data, engineers the same features
-    used during training, and predicts products for every customer using the
-    already-trained XGBoost (and optionally CBF) models.
 
-    Unlike the old version, this assumes the data is already cleaned —
-    no prestep is run.
-    """
     if logs is None:
         logs = []
     if progress_callback is None:
@@ -95,7 +65,6 @@ def predict_new_data(
     logs.append(" BATCH PREDICTION: Processing New Customer Data")
     logs.append("=" * 60)
 
-    # ── 1. Load cleaned data ──
     logs.append("")
     logs.append("Step 1/3: Loading cleaned data...")
     progress_callback(15)
@@ -107,7 +76,6 @@ def predict_new_data(
     has_transactions = transaction_df is not None and len(transaction_df) > 0
     progress_callback(35)
 
-    # ── Drop unneeded columns ──
     from preprocessing import drop_unneeded_columns
 
     prime_df = drop_unneeded_columns(prime_df, prime_only=True)
@@ -116,12 +84,11 @@ def predict_new_data(
 
     prime_df["GENDER"] = prime_df["GENDER"].fillna("Unknown")
 
-    # ── Preserve RIMNO → CUSTOMER_ID mapping before dedup ──
+    # Preserve RIMNO -> CUSTOMER_ID mapping before dedup 
     rimno_map = prime_df[["CUSTOMER_ID", "RIMNO"]].drop_duplicates(
         subset=["CUSTOMER_ID"]
     )
 
-    # ── 2. Feature Engineering ──
     logs.append("")
     logs.append("=" * 60)
     logs.append(" Step 2/3: Feature Engineering")
@@ -135,7 +102,6 @@ def predict_new_data(
 
     profile = merge_all_features(prime_df, rfm_features, mcc_spend, foreign_agg, logs)
 
-    # Fill NaN features & One hot encoding & drop features
     from preprocessing import fill_missing_values, one_hot_encode_categoricals
 
     profile = fill_missing_values(profile)
@@ -154,7 +120,7 @@ def predict_new_data(
     profile = profile.drop(columns=existing_drop)
     profile = profile.drop(columns=["BRANCH_ID"], errors="ignore")
 
-    # Drop any HAS_PROD_ columns that might exist in the new data
+    # Drop any HAS_PROD_ columns 
     prod_cols_new = [c for c in profile.columns if c.startswith("HAS_PROD_")]
     if prod_cols_new:
         profile = profile.drop(columns=prod_cols_new)
@@ -170,7 +136,6 @@ def predict_new_data(
     logs.append(f"Built feature profile for {len(profile)} customers.")
     progress_callback(60)
 
-    # ── 3. Align features with trained model & Predict ──
     logs.append("")
     logs.append("=" * 60)
     logs.append(" Step 3/3: Aligning Features & Running Predictions")
@@ -326,21 +291,11 @@ def predict_new_data(
 
 
 def main():
-    """
-    CLI entry point for the Recommendation System.
-
-    Usage
-    -----
-        python main.py train                      # Train with default cleaned data dirs
-        python main.py train --prime-dir /path    # Train with custom cleaned data dir
-        python main.py score --prime-dir /path    # Score new cleaned data
-    """
     parser = argparse.ArgumentParser(
         description="Recommendation Pipeline System",
     )
     sub = parser.add_subparsers(dest="command")
 
-    # --- train ---
     train_parser = sub.add_parser(
         "train", help="Run preprocessing and train the models"
     )
@@ -355,7 +310,6 @@ def main():
         help="Directory with cleaned transaction CSVs (default: config)",
     )
 
-    # --- score ---
     score_parser = sub.add_parser("score", help="Score new data using saved models")
     score_parser.add_argument(
         "--prime-dir",

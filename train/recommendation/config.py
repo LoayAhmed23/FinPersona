@@ -1,15 +1,6 @@
-"""
-config.py
-===========
-Central configuration for the Recommendation Pipeline.
-Stores column definitions, constants, and hyperparameters.
-"""
-
 import os
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
@@ -29,7 +20,7 @@ os.makedirs(PREDICTIONS_DIR, exist_ok=True)
 ENGINEERED_FEATURES_DIR = os.path.join(DATA_DIR, "engineered_recommendation_features")
 os.makedirs(ENGINEERED_FEATURES_DIR, exist_ok=True)
 
-# Output files — models in root/models with recommendation_ prefix
+# Output files
 PREPROCESSED_CSV = os.path.join(ENGINEERED_FEATURES_DIR, "final_customer_profile.csv")
 XGB_MODELS_PKL = os.path.join(OUTPUT_DIR, "recommendation_xgb_models.pkl")
 XGB_META_JSON = os.path.join(OUTPUT_DIR, "recommendation_xgb_meta.json")
@@ -39,9 +30,8 @@ BATCH_OUTPUT_PATH = os.path.join(
     PREDICTIONS_DIR, "recommendation_batch_predictions.csv"
 )
 
-# ---------------------------------------------------------------------------
-# Column Definitions (Prime — for reading already-cleaned CSVs)
-# ---------------------------------------------------------------------------
+
+# Data 
 PRIME_STRING_COLS = [
     "BRANCH_NAME",
     "ACTIVATED",
@@ -71,9 +61,7 @@ PRIME_DATE_COLS = [
     "LAST_PAYMENT_DATE",
 ]
 
-# ---------------------------------------------------------------------------
-# Column Definitions (Transaction — for reading already-cleaned CSVs)
-# ---------------------------------------------------------------------------
+
 TXN_STRING_COLS = [
     "MERCHNAME",
     "MERCH ID",
@@ -88,9 +76,7 @@ TXN_INT_COLS = ["RIMNO", "CCY", "MCC", "SETTLEMENT CCY", "CUSTOMER_ID"]
 TXN_FLOAT_COLS = ["ORIG AMOUNT", "EMBEDDED _FEE", "BILLING AMT", "SETTLEMENT AMT"]
 TXN_DATE_COLS = ["TRXN DATE", "POST DATE"]
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+
 INACTIVE_STATUSES = [
     "CLSB",
     "CLSC",

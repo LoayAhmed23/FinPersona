@@ -2,7 +2,6 @@ import pandas as pd
 
 
 def build_user_item_matrix(prime_df, logs):
-    """Builds the user-item ownership matrix and drops PRODUCT_NAME."""
     user_item_df = None
     if "PRODUCT_NAME" in prime_df.columns and prime_df["PRODUCT_NAME"].notna().any():
         user_item_matrix = pd.crosstab(
@@ -26,8 +25,7 @@ def build_user_item_matrix(prime_df, logs):
     return prime_df, user_item_df
 
 
-def build_rfm_features(transaction_df):
-    """Extracts Recency, Frequency, Monetary features from transactions."""
+def build_rfm_features(transaction_df): # Extracts Recency, Frequency, Monetary features from transactions.
     if transaction_df is None or len(transaction_df) == 0:
         return pd.DataFrame(
             columns=[
@@ -56,7 +54,6 @@ def build_rfm_features(transaction_df):
 
 
 def build_mcc_spend(transaction_df):
-    """Pivots transaction amounts by MCC code."""
     if transaction_df is None or len(transaction_df) == 0:
         return pd.DataFrame(columns=["CUSTOMER_ID"])
 
@@ -74,7 +71,6 @@ def build_mcc_spend(transaction_df):
 
 
 def build_foreign_trxn_features(transaction_df):
-    """Counts foreign transactions."""
     if transaction_df is None or len(transaction_df) == 0:
         return pd.DataFrame(columns=["CUSTOMER_ID", "FOREIGN_TRXN_COUNT"])
 
@@ -90,7 +86,6 @@ def build_foreign_trxn_features(transaction_df):
 
 
 def build_demographics_features(prime_df):
-    """Derives AGE and AGE_GROUP from DOB."""
     extraction_date = pd.to_datetime("today")
     if "DOB" in prime_df.columns:
         prime_df["AGE"] = (extraction_date - prime_df["DOB"]).dt.days // 365
@@ -106,7 +101,6 @@ def build_demographics_features(prime_df):
 
 
 def merge_all_features(prime_df, rfm_features, mcc_spend, foreign_agg, logs):
-    """Merges all engineered features into a single Customer 360 profile."""
     logs.append("")
     logs.append("=" * 60)
     logs.append(" PHASE 3: Building Final Customer Profile (1 Row per Customer)")

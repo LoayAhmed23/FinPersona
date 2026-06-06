@@ -13,10 +13,6 @@ from xgboost import XGBClassifier
 
 
 def train_xgboost(df, logs=None):
-    """
-    Trains one XGBoost model per product with threshold tuning.
-    Returns (models_dict, optimal_thresholds, feature_cols, valid_targets, metrics_dict, logs).
-    """
     if logs is None:
         logs = []
     logs.append("=" * 60)
@@ -38,7 +34,6 @@ def train_xgboost(df, logs=None):
 
     Y = df[valid_targets]
 
-    # Three-way split
     X_train_full, X_test, Y_train_full, Y_test = train_test_split(
         X, Y, test_size=0.2, random_state=42
     )
@@ -115,7 +110,7 @@ def train_xgboost(df, logs=None):
 
     Y_pred = pd.DataFrame(predictions_dict, index=Y_test.index)
 
-    # Metrics
+    # measuring metrics
     metrics, exact_acc, micro_f1, macro_f1 = evaluate_xgboost_metrics(
         Y_test, Y_pred, valid_targets, Y_train, optimal_thresholds
     )
@@ -130,25 +125,19 @@ def train_xgboost(df, logs=None):
 def predict_for_customer(
     customer_id, df, models_dict, optimal_thresholds, feature_cols, valid_targets
 ):
-    """
-    Given a customer ID, uses trained XGBoost models to predict which products
-    the customer is likely to hold.
-    Returns (model_predictions list, already_holding list, customer_found bool).
-    """
     customer_row = df[df["CUSTOMER_ID"] == customer_id]
     if customer_row.empty:
         return [], [], False
 
     X_customer = customer_row[feature_cols].fillna(0)
 
-    # --- 1. Ground truth: what the customer ACTUALLY holds in the data ---
     already_holding = []
     for product in valid_targets:
         if product in customer_row.columns:
             if int(customer_row[product].values[0]) == 1:
                 already_holding.append(product.replace("HAS_PROD_", ""))
 
-    # --- 2. Model predictions: run every model and collect results ---
+    # Model predictions
     model_predictions = []  # all products the model predicts (above threshold)
 
     for product in valid_targets:
@@ -171,11 +160,6 @@ def predict_for_customer(
 
 
 def train_cbf(df, logs=None):
-    """
-    Builds an item-item cosine similarity matrix, evaluates with a
-    masking-based train/test split, and finds optimal similarity thresholds.
-    Returns (sim_matrix, product_cols, cbf_thresholds, metrics, logs).
-    """
     if logs is None:
         logs = []
     logs.append("=" * 60)
@@ -189,7 +173,7 @@ def train_cbf(df, logs=None):
     logs.append(f"Users:    {user_item.shape[0]}")
     logs.append(f"Products: {user_item.shape[1]}")
 
-    # ── Masking-based train/test split ──
+    # Masking: train/test split
     np.random.seed(42)
     train_matrix = user_item.copy()
     test_matrix = pd.DataFrame(0, index=user_item.index, columns=user_item.columns)
@@ -206,11 +190,11 @@ def train_cbf(df, logs=None):
 
     logs.append(f"Train/Test masking: {users_with_test} users have masked items.")
 
-    # ── Build similarity on TRAIN data only ──
+    #Build similarity on TRAIN data only
     sim_array = cosine_similarity(train_matrix.T)
     sim_matrix = pd.DataFrame(sim_array, index=product_cols, columns=product_cols)
 
-    # ── Precompute score matrix (users × products) via matrix multiply ──
+    #compute score matrix (users × products) via matrix multiply
     train_np = train_matrix.values  # (n_users, n_products)
     sim_np = sim_matrix.values  # (n_products, n_products)
     score_matrix = train_np @ sim_np  # (n_users, n_products)
@@ -233,7 +217,6 @@ def train_cbf(df, logs=None):
         cbf_thresholds = {col: 0.1 for col in product_cols}
         metrics = {}
     else:
-        # ── Vectorized threshold sweep per product ──
         logs.append("")
         logs.append("Optimizing similarity thresholds (recall-focused F2-score)...")
         cbf_thresholds = optimize_cbf_thresholds(
@@ -241,7 +224,6 @@ def train_cbf(df, logs=None):
         )
         logs.append("Thresholds optimized (recall-weighted).")
 
-        # ── Vectorized evaluation on test set ──
         logs.append("")
         logs.append("Evaluating on test set...")
         metrics, exact_acc, micro_p, micro_r, micro_f1, macro_p, macro_r, macro_f1 = (
@@ -258,7 +240,6 @@ def train_cbf(df, logs=None):
         logs.append(f"Micro  — P: {micro_p:.4f}  R: {micro_r:.4f}  F1: {micro_f1:.4f}")
         logs.append(f"Macro  — P: {macro_p:.4f}  R: {macro_r:.4f}  F1: {macro_f1:.4f}")
 
-    # ── Rebuild similarity on FULL data for inference ──
     full_sim_array = cosine_similarity(user_item.T)
     sim_matrix_full = pd.DataFrame(
         full_sim_array, index=product_cols, columns=product_cols
@@ -268,10 +249,6 @@ def train_cbf(df, logs=None):
 
 
 def predict_cbf_for_customer(customer_id, df, sim_matrix, product_cols, cbf_thresholds):
-    """
-    Recommends products based on item-item similarity using per-product
-    thresholds. Returns (recommendations list, already_holding list, found bool).
-    """
     customer_row = df[df["CUSTOMER_ID"] == customer_id]
     if customer_row.empty:
         return [], [], False
@@ -302,7 +279,6 @@ def predict_cbf_for_customer(customer_id, df, sim_matrix, product_cols, cbf_thre
                 }
             )
 
-    # Sort by score descending
     recommendations.sort(key=lambda x: x["similarity_score"], reverse=True)
 
     return recommendations, already_holding, True
