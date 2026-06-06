@@ -1,13 +1,13 @@
 # FinPersona
 
-FinPersona is a local banking analytics project with three model workflows:
+FinPersona is a banking analytics project with three model workflows:
 credit default risk, customer churn prediction, and product recommendation. A
-Flask gateway provides one browser UI, while each workflow also has its own
-backend service and command-line pipeline.
+Flask gateway provides browser UI for the three models.
 
-The repository includes synthetic sample data, data-cleaning scripts, trained
+This repository includes synthetic sample data, data-cleaning scripts, trained
 model artifacts, output reports, and a pytest suite for the core data and model
 logic.
+Synthetic sample data is used here because the real data is confidential.
 
 ## Project layout
 
@@ -17,13 +17,10 @@ FinPersona/
 |-- UI/                             # Unified Flask gateway and browser interface
 |   |-- app.py                      # Proxies UI API calls to the module servers
 |   `-- templates/index.html
-|-- data/                           # Synthetic raw and cleaned data
-|   |-- generate_fake_data.py       # Generates prime CSVs and transaction XLSX files
+|-- data/                           # Synthetic data
+|   |-- generate_fake_data.py       # Generates prime CSVs and transaction XLSX files that have the same features as the real data
 |   |-- prime/                      # Raw monthly prime/card snapshots
 |   |-- transaction/                # Raw monthly transaction files
-|   |-- prime_cleaned/              # Cleaned active and historical prime outputs
-|   |-- transaction_cleaned/        # Cleaned transaction outputs and missing-ID rows
-|   `-- engineered_recommendation_features/
 |-- data_cleaning/                  # Prime and transaction cleaning pipelines
 |-- train/
 |   |-- credit/                     # Credit default risk module
@@ -31,10 +28,7 @@ FinPersona/
 |   `-- recommendation/             # Product recommendation module
 |-- models/                         # Saved model and app-state artifacts
 |-- outputs/                        # Generated score CSVs and evaluation reports
-|-- tests/                          # Unit and integration tests
-|-- pyproject.toml                  # Poetry, Black, and pytest configuration
-|-- requirements-dev.txt            # Legacy dev-only install list
-`-- .flake8                         # Flake8 configuration
+|-- tests/                          # Tests
 ```
 
 Note: the image asset directory is currently named `assests/`, and the code
@@ -90,8 +84,8 @@ running a full training job.
 
 ### Churn
 
-The churn module labels customers by comparing a February 2026 reference month
-with a May 2026 target month, while also treating configured write-off statuses
+The churn module labels customers by comparing a reference month
+with a target month, while also treating configured write-off statuses
 as churn. It engineers customer activity and prime/account features, compares
 multiple classifiers, optionally tunes selected models, and saves the best
 model.
@@ -134,11 +128,6 @@ Run commands inside the Poetry environment with `poetry run`, for example:
 poetry run python main.py
 ```
 
-If you prefer an activated shell:
-
-```powershell
-poetry shell
-```
 
 ## Common workflows
 
@@ -146,18 +135,6 @@ Generate the local synthetic data:
 
 ```powershell
 poetry run python data/generate_fake_data.py
-```
-
-Clean prime files:
-
-```powershell
-poetry run python data_cleaning/prime_id_creation.py
-```
-
-Clean and map transaction files:
-
-```powershell
-poetry run python data_cleaning/transaction_id_mapping.py
 ```
 
 Start the full local application:
@@ -172,7 +149,7 @@ Then open:
 http://127.0.0.1:5050
 ```
 
-Run the credit pipeline:
+Running only the credit pipeline using CLI:
 
 ```powershell
 poetry run python train/credit/pipeline.py train
@@ -181,14 +158,14 @@ poetry run python train/credit/pipeline.py tune --sample
 poetry run python train/credit/pipeline.py score
 ```
 
-Run the churn pipeline:
+Run only the churn pipeline using CLI:
 
 ```powershell
 poetry run python train/churn/pipeline.py train
 poetry run python train/churn/pipeline.py tune
 ```
 
-Run the recommendation pipeline:
+Run only the recommendation pipeline:
 
 ```powershell
 poetry run python train/recommendation/pipeline.py train
@@ -251,16 +228,3 @@ The tests use small deterministic data frames, temporary output files, and
 monkeypatched model stages. They cover data cleaning, module-level feature and
 metric logic, gateway proxy behavior, launcher configuration, and recommendation
 batch output generation.
-
-## Development notes
-
-- Most module files use sibling imports such as `import config`, so the scripts
-  are intended to run from the repository layout instead of as installed Python
-  packages.
-- Data and model artifacts can be regenerated. Keep large or sensitive
-  real-world datasets outside the repository unless they are explicitly meant
-  to be versioned.
-- The browser UI is a local operational interface. It assumes the three backend
-  services are running on their configured local ports.
-- `requirements-dev.txt` is kept for older workflows, but Poetry is now the
-  recommended environment manager for the full project.
