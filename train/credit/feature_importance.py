@@ -78,7 +78,9 @@ def plot_feature_importance():
             plt.xlabel("Gain Importance", fontsize=12)
             plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
-            plt.savefig(os.path.join(config.PREDICTIONS_DIR, "feature_importance_gain.png"))
+            plt.savefig(
+                os.path.join(config.PREDICTIONS_DIR, "feature_importance_gain.png")
+            )
             plt.close()
 
             plt.figure(figsize=(12, 12))
@@ -92,7 +94,9 @@ def plot_feature_importance():
             plt.xlabel("Weight Importance", fontsize=12)
             plt.ylabel("Engineered Feature", fontsize=12)
             plt.tight_layout()
-            plt.savefig(os.path.join(config.PREDICTIONS_DIR, "feature_importance_split.png"))
+            plt.savefig(
+                os.path.join(config.PREDICTIONS_DIR, "feature_importance_split.png")
+            )
             plt.close()
 
             print(f"Saved feature importance plots to {config.PREDICTIONS_DIR}")
