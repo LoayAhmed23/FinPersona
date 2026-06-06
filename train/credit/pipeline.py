@@ -249,7 +249,6 @@ def run_training_pipeline(
         print("  SMOTE disabled — skipping.")
 
     _banner(11, TOTAL, "TOP-20 GAIN FEATURE SELECTION (NO INTERSECTION)")
-    # ------------------------------------------------------------------
     # Train a light model to get gain-based importances, then retrain using
     # only the top-N features.
     print("  Training a temporary model to compute gain importances ...")

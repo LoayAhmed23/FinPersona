@@ -123,9 +123,7 @@ def plot_feature_target_correlation(
     output_dir = os.path.join(config.BASE_DIR, "output")
     os.makedirs(output_dir, exist_ok=True)
 
-    # ------------------------------------------------------------------
     # If X/y not supplied, reconstruct from raw data + saved artifacts
-    # ------------------------------------------------------------------
     if X is None or y is None:
         from data_loader import load_prime_data, load_transaction_data, merge_data
         from feature_engineering import (
@@ -155,9 +153,7 @@ def plot_feature_target_correlation(
 
         X, y, _ = preprocess(merged, target, fit=False, artifacts=artifacts)
 
-    # ------------------------------------------------------------------
     # Compute correlations
-    # ------------------------------------------------------------------
     # Keep only numeric columns (label-encoded cats are already int)
     numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
     corr_values = X[numeric_cols].corrwith(y).dropna()
@@ -176,9 +172,7 @@ def plot_feature_target_correlation(
         "num__", "", regex=False
     ).str.replace("cat__", "", regex=False)
 
-    # ------------------------------------------------------------------
     # Plot
-    # ------------------------------------------------------------------
     sns.set_theme(style="whitegrid")
     fig, ax = plt.subplots(figsize=(12, max(6, top_n * 0.4)))
 
@@ -206,7 +200,7 @@ def plot_feature_target_correlation(
     save_path = os.path.join(output_dir, "feature_target_correlation.png")
     plt.savefig(save_path, dpi=150)
     plt.close()
-    print(f"  Saved feature–target correlation plot to {save_path}")
+    print(f"  Saved feature target correlation plot to {save_path}")
 
 
 if __name__ == "__main__":

@@ -109,7 +109,6 @@ def preprocess(
     return X, y, artifacts
 
 
-# ---------------------------------------------------------------------------
 # Correlation-based feature filter
 def drop_uncorrelated_features(
     X: pd.DataFrame,
