@@ -275,10 +275,12 @@ def predict_cbf_for_customer(customer_id, df, sim_matrix, product_cols, cbf_thre
                 {
                     "product": product.replace("HAS_PROD_", ""),
                     "similarity_score": round(float(score), 4),
+                    "score": round(float(score), 4),
                     "threshold": threshold,
                 }
             )
 
     recommendations.sort(key=lambda x: x["similarity_score"], reverse=True)
+    recommendations = recommendations[:3]
 
     return recommendations, already_holding, True

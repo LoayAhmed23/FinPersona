@@ -225,20 +225,26 @@ def predict_new_data(
                     not_held = user_held == 0
                     recommend = above_threshold & not_held
 
-                    cust_indices, prod_indices = np.where(recommend)
-                    for ci, pi in zip(cust_indices, prod_indices):
-                        results.append(
-                            {
-                                "CUSTOMER_ID": valid_cids[ci],
-                                "PRODUCT_NAME": common_prods[pi].replace(
-                                    "HAS_PROD_", ""
-                                ),
-                                "PROBABILITY": round(float(scores[ci, pi]) * 100, 2),
-                                "THRESHOLD": round(float(threshold_arr[pi]) * 100, 2),
-                                "MODEL": "CBF",
-                            }
-                        )
-                        cbf_rec_count += 1
+                    for ci in range(len(valid_cids)):
+                        cust_rec_idx = np.where(recommend[ci])[0]
+                        if len(cust_rec_idx) > 0:
+                            # Sort by score descending
+                            sorted_idx = cust_rec_idx[np.argsort(-scores[ci, cust_rec_idx])]
+                            # Take top 3
+                            top_3_idx = sorted_idx[:3]
+                            for pi in top_3_idx:
+                                results.append(
+                                    {
+                                        "CUSTOMER_ID": valid_cids[ci],
+                                        "PRODUCT_NAME": common_prods[pi].replace(
+                                            "HAS_PROD_", ""
+                                        ),
+                                        "PROBABILITY": round(float(scores[ci, pi]) * 100, 2),
+                                        "THRESHOLD": round(float(threshold_arr[pi]) * 100, 2),
+                                        "MODEL": "CBF",
+                                    }
+                                )
+                                cbf_rec_count += 1
 
                     logs.append(f"  CBF: {cbf_rec_count} recommended predictions.")
 

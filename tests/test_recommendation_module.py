@@ -196,3 +196,46 @@ def test_recommendation_cbf_metrics_use_product_thresholds():
     assert macro_p == pytest.approx(1.0)
     assert macro_r == pytest.approx(1.0)
     assert macro_f1 == pytest.approx(1.0)
+
+
+def test_recommendation_cbf_metrics_enforces_top_3():
+    evaluation = load_project_module(
+        "train/recommendation/evaluation.py",
+        "recommendation_cbf_metrics_top_3_test",
+    )
+
+    scores = np.array(
+        [
+            [0.5, 0.6, 0.7, 0.8],
+        ]
+    )
+    truth = np.array(
+        [
+            [1, 1, 1, 1],
+        ]
+    )
+    test_user_mask = np.array([True])
+    thresholds = {
+        "HAS_PROD_A": 0.4,
+        "HAS_PROD_B": 0.4,
+        "HAS_PROD_C": 0.4,
+        "HAS_PROD_D": 0.4,
+    }
+
+    metrics, exact_acc, micro_p, micro_r, micro_f1, macro_p, macro_r, macro_f1 = (
+        evaluation.evaluate_cbf_metrics(
+            scores,
+            truth,
+            test_user_mask,
+            thresholds,
+            ["HAS_PROD_A", "HAS_PROD_B", "HAS_PROD_C", "HAS_PROD_D"],
+        )
+    )
+
+    # Since we predicted B, C, D (top 3 scores: 0.6, 0.7, 0.8) out of A, B, C, D:
+    # Y_pred is [[0, 1, 1, 1]]
+    # Y_true is [[1, 1, 1, 1]]
+    # So precision is 1.0 (3/3), recall is 0.75 (3/4)
+    assert micro_p == pytest.approx(1.0)
+    assert micro_r == pytest.approx(0.75)
+

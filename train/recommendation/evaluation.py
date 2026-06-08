@@ -33,12 +33,12 @@ def optimize_cbf_thresholds(product_cols, score_matrix_masked, test_user_mask, t
         y_true_col = test_np[test_user_mask, p_idx]
 
         best_t = 0.3  # lower default to favour recall
-        best_f2 = 0.0
+        best_f3 = 0.0
         for t in thresholds_to_try:
             y_pred_col = (scores_col >= t).astype(int)
-            f2_val = fbeta_score(y_true_col, y_pred_col, beta=2, zero_division=0)
-            if f2_val > best_f2:
-                best_f2 = f2_val
+            f3_val = fbeta_score(y_true_col, y_pred_col, beta=3, zero_division=0)
+            if f3_val > best_f3:
+                best_f3 = f3_val
                 best_t = round(float(t), 2)
         cbf_thresholds[product] = best_t
     return cbf_thresholds
@@ -103,7 +103,17 @@ def evaluate_cbf_metrics(
 ):
     """Calculates evaluation metrics for CBF predictions."""
     threshold_arr = np.array([cbf_thresholds[p] for p in product_cols])
-    Y_pred = (score_matrix_masked[test_user_mask] >= threshold_arr).astype(int)
+    scores_subset = score_matrix_masked[test_user_mask]
+    Y_pred = np.zeros_like(scores_subset, dtype=int)
+    for i in range(len(scores_subset)):
+        row_scores = scores_subset[i]
+        above_threshold_idx = np.where(row_scores >= threshold_arr)[0]
+        if len(above_threshold_idx) > 0:
+            # Sort indices of products by score descending
+            sorted_idx = above_threshold_idx[np.argsort(-row_scores[above_threshold_idx])]
+            # Take top 3
+            top_3_idx = sorted_idx[:3]
+            Y_pred[i, top_3_idx] = 1
     Y_true = test_np[test_user_mask]
 
     exact_acc = accuracy_score(Y_true, Y_pred)
