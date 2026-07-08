@@ -67,17 +67,40 @@ def get_classifiers(y_train=None):
 def train_classifiers(X_train, y_train, X_test, y_test) -> dict:
     """Train all classifiers and return predictions.
 
-    Returns dict: {name: {"model": fitted_model, "preds": array, "probs": array}}
+    Returns dict: {name: {"model": fitted_model, "preds": array, "probs": array,
+                           "history": dict or None}}
     """
     classifiers = get_classifiers(y_train)
     results = {}
 
     for name, clf in classifiers.items():
         print(f"  Training {name} ...")
-        clf.fit(X_train, y_train)
+        history = None
+
+        # For iterative models, pass eval_set to capture per-round metrics
+        if name == "XGBoost":
+            clf.fit(
+                X_train, y_train,
+                eval_set=[(X_train, y_train), (X_test, y_test)],
+                verbose=False,
+            )
+            history = clf.evals_result()
+        elif name == "LightGBM":
+            clf.fit(
+                X_train, y_train,
+                eval_set=[(X_train, y_train), (X_test, y_test)],
+                eval_metric="auc",
+            )
+            history = clf.evals_result_
+        else:
+            clf.fit(X_train, y_train)
+
         preds = clf.predict(X_test)
         probs = clf.predict_proba(X_test)[:, 1]
-        results[name] = {"model": clf, "preds": preds, "probs": probs}
+        results[name] = {
+            "model": clf, "preds": preds, "probs": probs,
+            "history": history,
+        }
         print("    Done.")
 
     return results

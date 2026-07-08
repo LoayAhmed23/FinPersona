@@ -84,6 +84,7 @@ def train_xgboost(
         feature_names=feature_names,
     )
 
+    evals_result = {}
     bst = xgb.train(
         params,
         xgb_train,
@@ -91,11 +92,12 @@ def train_xgboost(
         evals=[(xgb_train, "train"), (xgb_val, "valid")],
         early_stopping_rounds=config.EARLY_STOPPING_ROUNDS,
         verbose_eval=10,
+        evals_result=evals_result,
     )
 
     best_auc = bst.best_score
     print(f"  Best iteration: {bst.best_iteration}  |  Best valid AUC: {best_auc}")
-    return bst
+    return bst, evals_result
 
 
 # ---------------------------------------------------------------------------

@@ -186,13 +186,11 @@ def merge_data(prime_df: pd.DataFrame, txn_features_df: pd.DataFrame) -> pd.Data
     month_col = config.MONTH_COL
     txn_cols = txn_features_df.columns.tolist()
 
-    prime_df[cid] = pd.to_numeric(prime_df[cid], errors="coerce").astype("Int64")
+    prime_df[cid] = prime_df[cid].astype(str).str.strip()
     # CUSTOMER_ID is part of the MultiIndex — rebuild with aligned dtype
     idx_names = txn_features_df.index.names
     txn_features_df = txn_features_df.reset_index()
-    txn_features_df[cid] = pd.to_numeric(txn_features_df[cid], errors="coerce").astype(
-        "Int64"
-    )
+    txn_features_df[cid] = txn_features_df[cid].astype(str).str.strip()
     txn_features_df = txn_features_df.set_index(idx_names)
 
     # Month-aware merge: txn_features is indexed by (CUSTOMER_ID, month)

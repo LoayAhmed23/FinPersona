@@ -119,6 +119,18 @@ def train_xgboost(df, logs=None):
     logs.append(f"Exact Match Accuracy: {exact_acc * 100:.2f}%")
     logs.append(f"Micro F1: {micro_f1:.4f} | Macro F1: {macro_f1:.4f}")
 
+    # --- Diagnostic curves ---
+    try:
+        from plots import plot_roc_curve_micro, plot_precision_recall_curve_micro
+
+        logs.append("")
+        logs.append("Generating ROC curves ...")
+        plot_roc_curve_micro(Y_test, test_proba_dict, valid_targets)
+        logs.append("Generating Precision-Recall curves ...")
+        plot_precision_recall_curve_micro(Y_test, test_proba_dict, valid_targets)
+    except Exception as e:
+        logs.append(f"Error generating diagnostic plots: {e}")
+
     return models_dict, optimal_thresholds, feature_cols, valid_targets, metrics, logs
 
 

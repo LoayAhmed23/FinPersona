@@ -17,6 +17,7 @@ from feature_engineering import (
     engineer_transaction_features,
 )
 from feature_importance import plot_feature_importance, plot_feature_target_correlation
+from plots import plot_learning_curves, plot_roc_curve, plot_precision_recall_curve
 from imblearn.over_sampling import SMOTE
 from model import (
     get_top_features_by_gain,
@@ -252,7 +253,7 @@ def run_training_pipeline(
     # Train a light model to get gain-based importances, then retrain using
     # only the top-N features.
     print("  Training a temporary model to compute gain importances ...")
-    tmp_bst = train_xgboost(
+    tmp_bst, _ = train_xgboost(
         X_train,
         y_train,
         X_test,
@@ -287,10 +288,11 @@ def run_training_pipeline(
 
         y_pred = (y_proba >= best_threshold).astype(int)
         model_to_save = best_model
+        evals_result = None  # not available for the tuning path
     else:
         _banner(12, TOTAL, "XGBOOST TRAINING")
         print("  Training final XGBoost on top-gain features ...")
-        bst = train_xgboost(
+        bst, evals_result = train_xgboost(
             X_train,
             y_train,
             X_test,
@@ -379,6 +381,26 @@ def run_training_pipeline(
         plot_feature_target_correlation(X, y)
     except Exception as e:
         print(f"Error plotting feature-target correlation: {e}")
+
+    # --- Diagnostic curves ---
+    try:
+        print("\n  Generating ROC curve ...")
+        plot_roc_curve(y_test, y_proba)
+    except Exception as e:
+        print(f"Error plotting ROC curve: {e}")
+
+    try:
+        print("  Generating Precision-Recall curve ...")
+        plot_precision_recall_curve(y_test, y_proba)
+    except Exception as e:
+        print(f"Error plotting Precision-Recall curve: {e}")
+
+    if not tune and evals_result:
+        try:
+            print("  Generating learning curves ...")
+            plot_learning_curves(evals_result)
+        except Exception as e:
+            print(f"Error plotting learning curves: {e}")
 
     return metrics
 

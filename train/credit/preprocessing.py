@@ -105,6 +105,14 @@ def preprocess(
 
     X = X.replace([np.inf, -np.inf], np.nan)
 
+    # Diagnostic: catch and print columns with NaNs
+    nan_cols = X.columns[X.isna().any()].tolist()
+    if nan_cols:
+        print(f"[preprocess] NOTE: {len(nan_cols)} column(s) contain NaNs (XGBoost will handle them):")
+        for col in nan_cols:
+            nan_count = X[col].isna().sum()
+            print(f"    - {col}: {nan_count} NaNs")
+
     print(f"[preprocess] Output shape: {X.shape}  |  fit={fit}")
     return X, y, artifacts
 

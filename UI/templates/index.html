@@ -973,11 +973,27 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20% {
+                transform: translateX(-6px);
+            }
+
+            40% {
+                transform: translateX(6px);
+            }
+
+            60% {
+                transform: translateX(-4px);
+            }
+
+            80% {
+                transform: translateX(4px);
+            }
         }
 
         .fp-error-overlay.visible .fp-error-card.shake {
@@ -1717,34 +1733,34 @@
         /* ── Pretty Error Overlay ── */
         function showError(msg, module) {
             const overlay = document.getElementById('fpErrorOverlay');
-            const card    = document.getElementById('fpErrorCard');
-            const accent  = document.getElementById('fpErrorAccent');
-            const icon    = document.getElementById('fpErrorIcon');
-            const title   = document.getElementById('fpErrorTitle');
-            const sub     = document.getElementById('fpErrorSubtitle');
-            const body    = document.getElementById('fpErrorMessage');
-            const hint    = document.getElementById('fpErrorHint');
+            const card = document.getElementById('fpErrorCard');
+            const accent = document.getElementById('fpErrorAccent');
+            const icon = document.getElementById('fpErrorIcon');
+            const title = document.getElementById('fpErrorTitle');
+            const sub = document.getElementById('fpErrorSubtitle');
+            const body = document.getElementById('fpErrorMessage');
+            const hint = document.getElementById('fpErrorHint');
             const hintTxt = document.getElementById('fpErrorHintText');
             const dismiss = document.getElementById('fpErrorDismissBtn');
 
             const msgStr = String(msg || 'An unknown error occurred.');
-            const isCsv  = /no csv files/i.test(msgStr);
+            const isCsv = /no csv files/i.test(msgStr);
 
             // Reset classes
-            accent.className  = 'fp-error-accent'  + (isCsv ? ' csv-accent'  : '');
-            icon.className    = 'fp-error-icon'    + (isCsv ? ' csv-icon'    : '');
-            dismiss.className = 'fp-error-dismiss'  + (isCsv ? ' csv-dismiss' : '');
+            accent.className = 'fp-error-accent' + (isCsv ? ' csv-accent' : '');
+            icon.className = 'fp-error-icon' + (isCsv ? ' csv-icon' : '');
+            dismiss.className = 'fp-error-dismiss' + (isCsv ? ' csv-dismiss' : '');
 
             if (isCsv) {
-                icon.textContent  = '📂';
+                icon.textContent = '📂';
                 title.textContent = 'No CSV Files Found';
-                sub.textContent   = (module || 'Pipeline') + ' — Data Directory Error';
+                sub.textContent = (module || 'Pipeline') + ' — Data Directory Error';
                 hint.style.display = 'flex';
                 hintTxt.textContent = 'Make sure the selected directory contains .csv files and the path is correct. If left blank, the default data directory is used.';
             } else {
-                icon.textContent  = '⚠️';
+                icon.textContent = '⚠️';
                 title.textContent = 'Something Went Wrong';
-                sub.textContent   = (module || 'Pipeline') + ' Error';
+                sub.textContent = (module || 'Pipeline') + ' Error';
                 hint.style.display = 'none';
             }
 

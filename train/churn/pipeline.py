@@ -15,6 +15,7 @@ from feature_engineering import (
     merge_all,
 )
 from model import save_model, train_classifiers, tune_models
+from plots import plot_learning_curves, plot_roc_curves, plot_precision_recall_curves
 from preprocessing import preprocess
 from sklearn.model_selection import train_test_split
 
@@ -173,6 +174,25 @@ def run_training_pipeline(
     )
     scores_df.to_csv(config.SCORES_PATH, index=False)
     print(f"  Churn scores saved to {config.SCORES_PATH}")
+
+    # --- Diagnostic curves ---
+    try:
+        print("\n  Generating ROC curves ...")
+        plot_roc_curves(y_test, results)
+    except Exception as e:
+        print(f"Error plotting ROC curves: {e}")
+
+    try:
+        print("  Generating Precision-Recall curves ...")
+        plot_precision_recall_curves(y_test, results)
+    except Exception as e:
+        print(f"Error plotting Precision-Recall curves: {e}")
+
+    try:
+        print("  Generating learning curves ...")
+        plot_learning_curves(results)
+    except Exception as e:
+        print(f"Error plotting learning curves: {e}")
 
     print()
     print("=" * 60)
